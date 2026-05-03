@@ -1970,7 +1970,7 @@ function App() {
     return statementSourceMonths.some((month) => {
       const details = filingItems[month]?.withholding?.[key]?._details || {};
       const value = details[selectedStatement.amountField];
-      return value !== undefined && value !== null && String(value).trim() !== "";
+      return toNumber(value) > 0;
     });
   }, [filingItems, selectedStatement.amountField, statementSourceMonths]);
 

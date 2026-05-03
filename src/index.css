@@ -1173,6 +1173,10 @@ tbody tr:hover td:last-child {
   text-align: left;
 }
 
+.bulk-print-area {
+  display: none;
+}
+
 .compact-table-wrap {
   max-height: 260px;
 }
@@ -1468,8 +1472,22 @@ tbody tr:hover td:last-child {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html,
   body {
     background: #ffffff;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
   }
 
   .sidebar,
@@ -1478,7 +1496,8 @@ tbody tr:hover td:last-child {
   .report-summary-grid,
   .saved-report-strip,
   .income-report-panel > .panel-header,
-  .notice {
+  .notice,
+  .withholding-note {
     display: none !important;
   }
 
@@ -1500,6 +1519,106 @@ tbody tr:hover td:last-child {
 
   .income-report-layout {
     display: block;
+  }
+
+  .bulk-print-area {
+    display: none;
+  }
+
+  .bulk-printing .main-content > :not(.bulk-print-area) {
+    display: none !important;
+  }
+
+  .bulk-printing .bulk-print-area {
+    display: block;
+  }
+
+  .bulk-report-page {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .bulk-report-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .report-preview {
+    width: 100%;
+    color: #111827;
+    font-size: 10px;
+    line-height: 1.32;
+  }
+
+  .report-preview header {
+    margin: 0 0 6px;
+    border-bottom: 2px solid #111827;
+    border-radius: 0;
+    background: #ffffff !important;
+    color: #111827;
+    padding: 0 0 7px;
+  }
+
+  .report-preview header span {
+    color: #475569;
+    font-size: 10px;
+  }
+
+  .report-preview header h2 {
+    margin: 2px 0 0;
+    color: #111827;
+    font-size: 19px;
+  }
+
+  .report-preview header p {
+    margin-top: 2px;
+    color: #334155;
+    font-size: 11px;
+  }
+
+  .report-preview section {
+    break-inside: avoid;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 7px 0;
+  }
+
+  .report-preview h3 {
+    margin-bottom: 5px;
+    font-size: 12px;
+  }
+
+  .report-preview p {
+    margin-top: 4px;
+    font-size: 10px;
+    line-height: 1.38;
+  }
+
+  .report-preview dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .report-preview dl div {
+    min-height: 24px;
+    border: 1px solid #d7e0e5;
+    border-radius: 4px;
+    background: #ffffff;
+    padding: 4px 6px;
+  }
+
+  .report-preview dt,
+  .report-preview dd {
+    font-size: 10px;
+  }
+
+  .report-mini-table {
+    min-width: 0;
+    font-size: 9px;
+  }
+
+  .report-mini-table th,
+  .report-mini-table td {
+    padding: 4px 4px;
   }
 }
 

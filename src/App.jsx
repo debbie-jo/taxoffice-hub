@@ -978,8 +978,19 @@ async function inflatePdfChunk(bytes) {
     throw new Error("이 브라우저에서는 PDF 압축 해제를 지원하지 않습니다. 최신 크롬이나 엣지에서 다시 시도해주세요.");
   }
 
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  const formats = ["deflate", "deflate-raw"];
+  let lastError = null;
+
+  for (const format of formats) {
+    try {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("PDF 압축을 풀지 못했습니다.");
 }
 
 function decodePdfHex(hex, cmap) {
@@ -1056,6 +1067,10 @@ async function extractPdfText(file) {
     });
     if (value) parts.push(value);
   });
+
+  if (parts.length === 0) {
+    throw new Error("PDF에서 신고서 텍스트를 찾지 못했습니다. 스캔본이 아닌 홈택스 전자신고 PDF인지 확인해주세요.");
+  }
 
   return parts.join("");
 }
@@ -1212,6 +1227,7 @@ function App() {
   const [incomeReportSavedReports, setIncomeReportSavedReports] = useState(() => readLocalState("incomeReportSavedReports", {}));
   const [incomeExpenseRates, setIncomeExpenseRates] = useState(() => readLocalState("incomeExpenseRates", []));
   const [incomeReportParsing, setIncomeReportParsing] = useState(false);
+  const [bulkPrintMode, setBulkPrintMode] = useState(false);
   const [sharedStorageReady, setSharedStorageReady] = useState(false);
   const yearOptions = useMemo(() => getYearOptions(), []);
 
@@ -2689,6 +2705,30 @@ function App() {
     downloadTextFile(`종소세_보고서_${incomeReportYear}.csv`, `\uFEFF${csv}`);
   }
 
+  const savedIncomeReportsForYear = useMemo(
+    () => Object.values(incomeReportSavedReports).filter((report) => String(report.year) === String(incomeReportYear)),
+    [incomeReportSavedReports, incomeReportYear],
+  );
+
+  function printIncomeReportsBulk() {
+    if (savedIncomeReportsForYear.length === 0) {
+      setMessage("PDF로 저장할 보고서가 없습니다. 보고서 저장 후 다시 시도해주세요.");
+      return;
+    }
+
+    setBulkPrintMode(true);
+    setTimeout(() => window.print(), 100);
+  }
+
+  useEffect(() => {
+    function closeBulkPrintMode() {
+      setBulkPrintMode(false);
+    }
+
+    window.addEventListener("afterprint", closeBulkPrintMode);
+    return () => window.removeEventListener("afterprint", closeBulkPrintMode);
+  }, []);
+
   useEffect(() => {
     Promise.resolve().then(() => {
       loadClients();
@@ -2698,7 +2738,7 @@ function App() {
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${bulkPrintMode ? "bulk-printing" : ""}`}>
       <aside className="sidebar">
         <div className="brand-block">
           <div className="brand-mark">T</div>
@@ -3893,7 +3933,8 @@ function App() {
                   <input type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importIncomeExpenseRates} />
                 </label>
                 <button className="primary-button" type="button" onClick={saveIncomeReport}>보고서 저장</button>
-                <button className="secondary-button" type="button" onClick={downloadIncomeReportsCsv}>일괄 다운</button>
+                <button className="secondary-button" type="button" onClick={printIncomeReportsBulk}>일괄 PDF</button>
+                <button className="secondary-button" type="button" onClick={downloadIncomeReportsCsv}>CSV 다운</button>
                 <button className="secondary-button danger-button" type="button" onClick={deleteIncomeReportsForYear}>일괄 삭제</button>
                 <button className="secondary-button" type="button" onClick={() => window.print()}>인쇄</button>
               </div>
@@ -3998,7 +4039,7 @@ function App() {
 
                   <article className="report-preview">
                     <header>
-                      <span>{incomeReportYear} 귀속</span>
+                      <span>세무법인다승 · {incomeReportYear} 귀속</span>
                       <h2>종합소득세 결산 보고서</h2>
                       <p>{normalizeClient(selectedIncomeReportClient).company_name}</p>
                     </header>
@@ -4340,6 +4381,97 @@ function App() {
             </div>
           </section>
         )}
+
+        <div className="bulk-print-area" aria-hidden={!bulkPrintMode}>
+          {savedIncomeReportsForYear.map((report) => (
+            <article className="report-preview bulk-report-page" key={report.id || `${report.year}-${report.clientKey}`}>
+              <header>
+                <span>세무법인다승 · {report.year} 귀속</span>
+                <h2>종합소득세 결산 보고서</h2>
+                <p>{report.companyName}</p>
+              </header>
+              <section>
+                <h3>1. 신고 개요</h3>
+                <dl>
+                  <div>
+                    <dt>총수입금액</dt>
+                    <dd>{valueOrDash(toNumber(report.totals?.revenueTotal || report.upload?.revenueTotal))}원</dd>
+                  </div>
+                  <div>
+                    <dt>필요경비</dt>
+                    <dd>{valueOrDash(toNumber(report.totals?.expenseTotal || report.upload?.expenseTotal))}원</dd>
+                  </div>
+                  <div>
+                    <dt>종합소득금액</dt>
+                    <dd>{valueOrDash(toNumber(report.totals?.totalIncome || report.upload?.totalIncome))}원</dd>
+                  </div>
+                  <div>
+                    <dt>과세표준</dt>
+                    <dd>{valueOrDash(toNumber(report.totals?.taxBase || report.upload?.taxBase))}원</dd>
+                  </div>
+                </dl>
+              </section>
+              <section>
+                <h3>2. 세액 요약</h3>
+                <dl>
+                  <div>
+                    <dt>결정세액</dt>
+                    <dd>{valueOrDash(toNumber(report.totals?.determinedTax || report.upload?.determinedTax))}원</dd>
+                  </div>
+                  <div>
+                    <dt>기납부세액</dt>
+                    <dd>{valueOrDash(toNumber(report.totals?.prepaidTax || report.upload?.prepaidTax))}원</dd>
+                  </div>
+                  <div>
+                    <dt>납부/환급세액</dt>
+                    <dd>{valueOrDash(toNumber(report.totals?.taxTotal || report.upload?.dueTax))}원</dd>
+                  </div>
+                </dl>
+              </section>
+              <section>
+                <h3>3. 사업/임대 소득률 비교</h3>
+                {(report.totals?.businessRows || []).length === 0 ? (
+                  <p>사업/임대소득 업종별 자료가 확인되지 않았습니다.</p>
+                ) : (
+                  <div className="report-table-wrap">
+                    <table className="report-mini-table">
+                      <thead>
+                        <tr>
+                          <th>업종코드</th>
+                          <th>업종명</th>
+                          <th>수입금액</th>
+                          <th>소득금액</th>
+                          <th>업체 소득률</th>
+                          <th>참고 소득률</th>
+                          <th>차이</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(report.totals?.businessRows || []).map((row) => (
+                          <tr key={`${report.id}-${row.code}`}>
+                            <td>{row.code}</td>
+                            <td>{row.industryName || "-"}</td>
+                            <td>{row.revenue || "-"}</td>
+                            <td>{row.income || "-"}</td>
+                            <td>{row.incomeRate || "-"}</td>
+                            <td>{row.referenceRate ? `${row.referenceRate} ${row.referenceSource ? `(${row.referenceSource})` : ""}` : "-"}</td>
+                            <td>{row.gap || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+              <section>
+                <h3>4. 검토 의견</h3>
+                <p>{report.notes?.summary || "신고서 기준으로 종합소득세 결산 내용을 정리했습니다."}</p>
+                <p>{report.notes?.comparison || "사업/임대소득은 업종별 수입금액 대비 소득률을 기준으로 검토했습니다."}</p>
+                <p>{report.notes?.closing || "신고서 기준 결산 내용과 최종 납부/환급세액을 위와 같이 안내드립니다."}</p>
+              </section>
+            </article>
+          ))}
+        </div>
       </main>
     </div>
   );

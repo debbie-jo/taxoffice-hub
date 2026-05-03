@@ -1474,7 +1474,7 @@ tbody tr:hover td:last-child {
 @media print {
   @page {
     size: A4;
-    margin: 8mm;
+    margin: 0;
   }
 
   * {
@@ -1488,6 +1488,8 @@ tbody tr:hover td:last-child {
     width: 210mm;
     min-height: 297mm;
     margin: 0;
+    box-sizing: border-box;
+    padding: 8mm;
   }
 
   .sidebar,
@@ -1546,40 +1548,40 @@ tbody tr:hover td:last-child {
   .report-preview {
     width: 100%;
     color: #111827;
-    font-size: 10px;
+    font-size: 10.5px;
     line-height: 1.32;
   }
 
   .report-preview header {
-    margin: 0 0 6px;
-    border-bottom: 2px solid #111827;
-    border-radius: 0;
-    background: #ffffff !important;
-    color: #111827;
-    padding: 0 0 7px;
+    margin: 0 0 10px;
+    border-bottom: 0;
+    border-radius: 7px 7px 0 0;
+    background: #11564e !important;
+    color: #ffffff;
+    padding: 18px 20px 20px;
   }
 
   .report-preview header span {
-    color: #475569;
-    font-size: 10px;
+    color: #d5f0ea;
+    font-size: 10.5px;
   }
 
   .report-preview header h2 {
-    margin: 2px 0 0;
-    color: #111827;
-    font-size: 19px;
+    margin: 4px 0 0;
+    color: #ffffff;
+    font-size: 22px;
   }
 
   .report-preview header p {
-    margin-top: 2px;
-    color: #334155;
-    font-size: 11px;
+    margin-top: 5px;
+    color: #eefaf7;
+    font-size: 12px;
   }
 
   .report-preview section {
     break-inside: avoid;
     border-bottom: 1px solid #cbd5e1;
-    padding: 7px 0;
+    padding: 8px 0;
   }
 
   .report-preview h3 {
@@ -1594,16 +1596,16 @@ tbody tr:hover td:last-child {
   }
 
   .report-preview dl {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 4px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .report-preview dl div {
-    min-height: 24px;
+    min-height: 27px;
     border: 1px solid #d7e0e5;
-    border-radius: 4px;
-    background: #ffffff;
-    padding: 4px 6px;
+    border-radius: 6px;
+    background: #f8fbfa;
+    padding: 5px 8px;
   }
 
   .report-preview dt,
@@ -1613,12 +1615,12 @@ tbody tr:hover td:last-child {
 
   .report-mini-table {
     min-width: 0;
-    font-size: 9px;
+    font-size: 8.7px;
   }
 
   .report-mini-table th,
   .report-mini-table td {
-    padding: 4px 4px;
+    padding: 3.5px 4px;
   }
 }
 

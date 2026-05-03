@@ -424,6 +424,13 @@ function rowsToObjects(rows) {
     "세액",
     "소득",
     "농특세",
+    "업종",
+    "업태",
+    "중분류",
+    "세분류",
+    "경비율",
+    "귀속연도",
+    "기준",
   ];
 
   const headerIndex = cleanRows.reduce((best, row, index) => {
@@ -1104,13 +1111,27 @@ function normalizeExpenseRateRow(row) {
   const code = onlyDigits(getCsvValue(row, ["업종코드", "업 종 코 드", "코드", "업종 코드", "업종"])).slice(0, 6);
   if (!code || code.length !== 6) return null;
 
-  const simpleRate = parseRateValue(getCsvValue(row, ["단순경비율", "단 순 경 비 율", "기본율", "단순 기본율"]));
-  const standardRate = parseRateValue(getCsvValue(row, ["기준경비율", "기 준 경 비 율", "경비율"]));
-  const expenseRate = simpleRate || standardRate;
+  const simpleRate = parseRateValue(getCsvValue(row, [
+    "단순경비율(일반율)",
+    "단순경비율",
+    "단 순 경 비 율",
+    "기본율",
+    "단순 기본율",
+  ]));
+  const standardRate = parseRateValue(getCsvValue(row, [
+    "기준경비율(일반율)",
+    "기준경비율",
+    "기 준 경 비 율",
+    "기준율",
+    "경비율",
+  ]));
+  const expenseRate = standardRate || simpleRate;
+  const industryName = getCsvValue(row, ["세분류", "업종명", "업 종 명", "세세분류", "업태명", "종목명"]);
 
   return {
     code,
-    industryName: getCsvValue(row, ["업종명", "업 종 명", "세세분류", "업태명", "종목명"]),
+    industryName,
+    detailName: getCsvValue(row, ["세세분류", "적용기준내용"]),
     simpleRate,
     standardRate,
     referenceIncomeRate: expenseRate ? Math.max(0, 100 - expenseRate) : 0,
@@ -2442,7 +2463,7 @@ function App() {
       industryName: rateInfo?.industryName || "",
       incomeRate,
       referenceRate,
-      referenceSource: officeAverageRate ? "사무실 평균" : rateInfo ? "국세청 경비율" : "",
+      referenceSource: officeAverageRate ? "사무실 평균" : rateInfo ? "국세청 기준율" : "",
       gap: referenceRate ? incomeRate - referenceRate : 0,
     };
   });
@@ -2654,7 +2675,7 @@ function App() {
 
   function downloadIncomeReportsCsv() {
     const reports = Object.values(incomeReportSavedReports).filter((report) => String(report.year) === String(incomeReportYear));
-    const headers = ["연도", "거래처", "대표자", "저장일", "업종코드", "업종명", "총수입금액", "필요경비", "소득금액", "업체 소득률", "참고 소득률", "평균 기준", "차이", "과세표준", "결정세액", "기납부세액", "납부/환급세액", "파일명"];
+    const headers = ["연도", "거래처", "대표자", "저장일", "업종코드", "세분류 업종명", "총수입금액", "필요경비", "소득금액", "업체 소득률", "기준 소득률", "기준", "차이", "과세표준", "결정세액", "기납부세액", "납부/환급세액", "파일명"];
     const rows = reports.map((report) => [
       report.year,
       report.companyName,
@@ -4137,11 +4158,11 @@ function App() {
                             <thead>
                               <tr>
                                 <th>업종코드</th>
-                                <th>업종명</th>
+                                <th>세분류 업종명</th>
                                 <th>수입금액</th>
                                 <th>소득금액</th>
                                 <th>업체 소득률</th>
-                                <th>참고 소득률</th>
+                                <th>기준 소득률</th>
                                 <th>차이</th>
                               </tr>
                             </thead>
@@ -4438,11 +4459,11 @@ function App() {
                       <thead>
                         <tr>
                           <th>업종코드</th>
-                          <th>업종명</th>
+                          <th>세분류 업종명</th>
                           <th>수입금액</th>
                           <th>소득금액</th>
                           <th>업체 소득률</th>
-                          <th>참고 소득률</th>
+                          <th>기준 소득률</th>
                           <th>차이</th>
                         </tr>
                       </thead>

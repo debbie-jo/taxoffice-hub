@@ -2010,23 +2010,25 @@ function App() {
     return String(value ?? "").trim() ? toNumber(value) : null;
   }
 
-  const statementReviewRows = statementClients.map((client) => {
-    const item = normalizeClient(client);
-    const row = findStatementRow(client);
-    const appAmount = getStatementExpectedAmount(client);
-    const homeTaxAmount = getStatementHomeTaxAmount(row);
-    const diff = homeTaxAmount === null ? null : appAmount - homeTaxAmount;
-    const status = !row ? "홈택스 없음" : homeTaxAmount === null ? "금액 없음" : diff === 0 ? "일치" : "차이";
+  const statementReviewRows = statementClients
+    .map((client) => {
+      const item = normalizeClient(client);
+      const row = findStatementRow(client);
+      const appAmount = getStatementExpectedAmount(client);
+      const homeTaxAmount = getStatementHomeTaxAmount(row);
+      const diff = homeTaxAmount === null ? null : appAmount - homeTaxAmount;
+      const status = !row ? "홈택스 없음" : homeTaxAmount === null ? "금액 없음" : diff === 0 ? "일치" : "차이";
 
-    return {
-      id: client.id,
-      item,
-      appAmount,
-      homeTaxAmount,
-      diff,
-      status,
-    };
-  });
+      return {
+        id: client.id,
+        item,
+        appAmount,
+        homeTaxAmount,
+        diff,
+        status,
+      };
+    })
+    .filter((row) => row.appAmount > 0);
 
   const filteredStatementReviewRows = useMemo(() => {
     if (statementStatusFilter === "전체") return statementReviewRows;

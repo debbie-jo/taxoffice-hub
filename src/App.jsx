@@ -122,6 +122,8 @@ const sharedStateConfigs = [
   { key: "correctionFilings", fallback: [] },
   { key: "reviewUploads", fallback: { rows: [], uploadMode: "amount" } },
   { key: "statementUploads", fallback: { rows: [] } },
+  { key: "incomeReportNotes", fallback: {} },
+  { key: "incomeReportUploads", fallback: {} },
 ];
 
 const withholdingAmountFields = [
@@ -960,6 +962,148 @@ function hasStateValue(value) {
   return Boolean(value);
 }
 
+function bytesToBinary(bytes) {
+  let result = "";
+  const chunkSize = 8192;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    result += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return result;
+}
+
+async function inflatePdfChunk(bytes) {
+  if (!("DecompressionStream" in window)) {
+    throw new Error("이 브라우저에서는 PDF 압축 해제를 지원하지 않습니다. 최신 크롬이나 엣지에서 다시 시도해주세요.");
+  }
+
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+function decodePdfHex(hex, cmap) {
+  let value = "";
+  const cleanHex = hex.replace(/\s/g, "").toUpperCase();
+
+  for (let index = 0; index < cleanHex.length; index += 4) {
+    value += cmap[cleanHex.slice(index, index + 4)] || "";
+  }
+
+  return value;
+}
+
+function parsePdfCMap(text) {
+  const cmap = {};
+  const blocks = text.match(/beginbfchar[\s\S]*?endbfchar/g) || [];
+
+  blocks.forEach((block) => {
+    [...block.matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g)].forEach(([, source, target]) => {
+      let value = "";
+      for (let index = 0; index < target.length; index += 4) {
+        value += String.fromCodePoint(parseInt(target.slice(index, index + 4), 16));
+      }
+      cmap[source.toUpperCase()] = value;
+    });
+  });
+
+  return cmap;
+}
+
+async function extractPdfText(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const binary = bytesToBinary(bytes);
+  const streams = [];
+  let position = 0;
+
+  while (position < binary.length) {
+    const streamIndex = binary.indexOf("stream", position);
+    if (streamIndex < 0) break;
+
+    let start = streamIndex + 6;
+    if (binary[start] === "\r" && binary[start + 1] === "\n") start += 2;
+    else if (binary[start] === "\n") start += 1;
+
+    const endStreamIndex = binary.indexOf("endstream", start);
+    if (endStreamIndex < 0) break;
+
+    let end = endStreamIndex;
+    if (binary[end - 2] === "\r" && binary[end - 1] === "\n") end -= 2;
+    else if (binary[end - 1] === "\n") end -= 1;
+
+    try {
+      streams.push(await inflatePdfChunk(bytes.subarray(start, end)));
+    } catch {
+      // Some streams can be images or unsupported filters. Text streams are handled when possible.
+    }
+
+    position = endStreamIndex + 9;
+  }
+
+  const streamText = streams.map((stream) => bytesToBinary(stream)).join("\n");
+  const cmap = parsePdfCMap(streamText);
+  const parts = [];
+
+  [...streamText.matchAll(/<([0-9A-Fa-f\s]+)>\s*Tj/g)].forEach(([, hex]) => {
+    const value = decodePdfHex(hex, cmap);
+    if (value) parts.push(value);
+  });
+
+  [...streamText.matchAll(/\[((?:.|\n|\r)*?)\]\s*TJ/g)].forEach(([, block]) => {
+    let value = "";
+    [...block.matchAll(/<([0-9A-Fa-f\s]+)>/g)].forEach(([, hex]) => {
+      value += decodePdfHex(hex, cmap);
+    });
+    if (value) parts.push(value);
+  });
+
+  return parts.join("");
+}
+
+function extractNumberAfter(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return formatSignedNumberWithCommas(match[1]);
+  }
+  return "";
+}
+
+function extractNumbersBetween(text, startLabel, endLabel) {
+  const start = text.indexOf(startLabel);
+  if (start < 0) return [];
+  const end = text.indexOf(endLabel, start + startLabel.length);
+  const section = text.slice(start + startLabel.length, end > start ? end : undefined);
+  return (section.match(/-?\d{1,3}(?:,\d{3})+/g) || []).map(toNumber);
+}
+
+function sumNumbers(values) {
+  return values.reduce((sum, value) => sum + value, 0);
+}
+
+function parseIncomeTaxReportFromPdfText(text) {
+  const compactText = text.replace(/\s+/g, "");
+  const revenueTotal = sumNumbers(extractNumbersBetween(compactText, "⑨총수입금액", "⑩필요경비"));
+  const expenseTotal = sumNumbers(extractNumbersBetween(compactText, "⑩필요경비", "⑪소득금액"));
+  const businessIncomeTotal = sumNumbers(extractNumbersBetween(compactText, "⑪소득금액(⑨-⑩)", "⑫과세기간"));
+  const taxpayerName = compactText.match(/신고인(.+?)\(서명또는인\)/)?.[1] || "";
+
+  return {
+    source: "pdf",
+    taxpayerName,
+    revenueTotal: revenueTotal ? formatSignedNumberWithCommas(revenueTotal) : "",
+    expenseTotal: expenseTotal ? formatSignedNumberWithCommas(expenseTotal) : "",
+    businessIncomeTotal: businessIncomeTotal ? formatSignedNumberWithCommas(businessIncomeTotal) : "",
+    totalIncome: extractNumberAfter(compactText, [/종합소득금액(-?\d{1,3}(?:,\d{3})*)/]),
+    incomeDeduction: extractNumberAfter(compactText, [/소득공제(-?\d{1,3}(?:,\d{3})*)/]),
+    taxBase: extractNumberAfter(compactText, [/과세표준\(-\)(-?\d{1,3}(?:,\d{3})*)/]),
+    taxRate: compactText.match(/세율([0-9.]+%)/)?.[1] || "",
+    calculatedTax: extractNumberAfter(compactText, [/산출세액(-?\d{1,3}(?:,\d{3})*)/]),
+    taxCredit: extractNumberAfter(compactText, [/세액감면세액공제(-?\d{1,3}(?:,\d{3})*)/]),
+    determinedTax: extractNumberAfter(compactText, [/결정세액종합과세\([^)]+\)(-?\d{1,3}(?:,\d{3})*)/]),
+    prepaidTax: extractNumberAfter(compactText, [/기납부세액(-?\d{1,3}(?:,\d{3})*)/]),
+    payableTax: extractNumberAfter(compactText, [/납부\(환급\)할총세액\(-\)(-?\d{1,3}(?:,\d{3})*)/]),
+    dueTax: extractNumberAfter(compactText, [/신고기한내납부할세액\([^)]+\)(-?\d{1,3}(?:,\d{3})*)/]),
+  };
+}
+
 function App() {
   const [clients, setClients] = useState([]);
   const [histories, setHistories] = useState([]);
@@ -1002,6 +1146,11 @@ function App() {
   const [statementHalf, setStatementHalf] = useState("상반기");
   const [statementRows, setStatementRows] = useState(() => readLocalState("statementUploads", { rows: [] }).rows || []);
   const [statementStatusFilter, setStatementStatusFilter] = useState("전체");
+  const [incomeReportYear, setIncomeReportYear] = useState(getCurrentYear());
+  const [incomeReportClientId, setIncomeReportClientId] = useState("");
+  const [incomeReportNotes, setIncomeReportNotes] = useState(() => readLocalState("incomeReportNotes", {}));
+  const [incomeReportUploads, setIncomeReportUploads] = useState(() => readLocalState("incomeReportUploads", {}));
+  const [incomeReportParsing, setIncomeReportParsing] = useState(false);
   const [sharedStorageReady, setSharedStorageReady] = useState(false);
   const yearOptions = useMemo(() => getYearOptions(), []);
 
@@ -1041,6 +1190,8 @@ function App() {
       const nextCorrectionItems = remoteStates.correctionFilings ?? localStates.correctionFilings;
       const nextReviewUploads = remoteStates.reviewUploads ?? localStates.reviewUploads;
       const nextStatementUploads = remoteStates.statementUploads ?? localStates.statementUploads;
+      const nextIncomeReportNotes = remoteStates.incomeReportNotes ?? localStates.incomeReportNotes;
+      const nextIncomeReportUploads = remoteStates.incomeReportUploads ?? localStates.incomeReportUploads;
 
       setProgressItems(nextProgressItems);
       setFilingItems(nextFilingItems);
@@ -1048,6 +1199,8 @@ function App() {
       setReviewRows(nextReviewUploads.rows || []);
       setReviewUploadMode(nextReviewUploads.uploadMode || "amount");
       setStatementRows(nextStatementUploads.rows || []);
+      setIncomeReportNotes(nextIncomeReportNotes || {});
+      setIncomeReportUploads(nextIncomeReportUploads || {});
       setSharedStorageReady(true);
 
       const missingRows = sharedStateConfigs
@@ -2141,6 +2294,90 @@ function App() {
     return reviewRowsByClient.filter((row) => row.status === reviewStatusFilter);
   }, [reviewRowsByClient, reviewStatusFilter]);
 
+  const incomeReportClients = useMemo(
+    () => activeClients.filter((client) => taxFilingTypes.income.applies(normalizeClient(client))),
+    [activeClients],
+  );
+
+  const selectedIncomeReportClient = useMemo(() => {
+    if (incomeReportClients.length === 0) return null;
+    return incomeReportClients.find((client) => getFilingKey(client) === incomeReportClientId) || incomeReportClients[0];
+  }, [incomeReportClientId, incomeReportClients]);
+
+  const incomeReportPeriodKey = `${incomeReportYear} 귀속`;
+  const incomeReportClientKey = selectedIncomeReportClient ? getFilingKey(selectedIncomeReportClient) : "";
+  const incomeReportDetails = selectedIncomeReportClient
+    ? filingItems[incomeReportPeriodKey]?.income?.[incomeReportClientKey]?._details || {}
+    : {};
+  const incomeReportNoteKey = selectedIncomeReportClient ? `${incomeReportYear}-${incomeReportClientKey}` : "";
+  const incomeReportUpload = incomeReportUploads[incomeReportNoteKey] || {};
+  const currentIncomeReportNotes = incomeReportNotes[incomeReportNoteKey] || {
+    summary: "",
+    risk: "",
+    request: "",
+    guide: "",
+  };
+
+  const incomeReportTaxTotal =
+    toNumber(incomeReportUpload.dueTax || incomeReportDetails.global_income_tax) +
+    toNumber(incomeReportDetails.local_income_tax) +
+    toNumber(incomeReportDetails.rural_tax);
+
+  function getIncomeReportValue(uploadField, detailField) {
+    return incomeReportUpload[uploadField] || incomeReportDetails[detailField] || "";
+  }
+
+  function changeIncomeReportNote(field, value) {
+    if (!incomeReportNoteKey) return;
+
+    setIncomeReportNotes((prev) => {
+      const next = {
+        ...prev,
+        [incomeReportNoteKey]: {
+          ...(prev[incomeReportNoteKey] || {}),
+          [field]: value,
+        },
+      };
+
+      persistSharedState("incomeReportNotes", next);
+      return next;
+    });
+  }
+
+  async function importIncomeReportPdf(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !incomeReportNoteKey) return;
+
+    setIncomeReportParsing(true);
+    setMessage("종소세 신고서 PDF를 읽는 중입니다.");
+
+    try {
+      const text = await extractPdfText(file);
+      const parsed = parseIncomeTaxReportFromPdfText(text);
+      const nextUpload = {
+        ...parsed,
+        fileName: file.name,
+        importedAt: new Date().toISOString(),
+      };
+
+      setIncomeReportUploads((prev) => {
+        const next = {
+          ...prev,
+          [incomeReportNoteKey]: nextUpload,
+        };
+        persistSharedState("incomeReportUploads", next);
+        return next;
+      });
+
+      setMessage("종소세 신고서에서 보고서 금액을 불러왔습니다.");
+    } catch (error) {
+      setMessage(`종소세 신고서를 읽지 못했습니다: ${error.message || "PDF 형식을 확인해주세요."}`);
+    } finally {
+      setIncomeReportParsing(false);
+    }
+  }
+
   useEffect(() => {
     Promise.resolve().then(() => {
       loadClients();
@@ -2201,6 +2438,7 @@ function App() {
                   </button>
                 ))}
                 <button className={activeView === "review" ? "active" : ""} type="button" onClick={() => setActiveView("review")}>신고 검토</button>
+                <button className={activeView === "income-report" ? "active" : ""} type="button" onClick={() => setActiveView("income-report")}>종소세 보고서</button>
                 <button className={activeView === "corrections" ? "active" : ""} type="button" onClick={() => setActiveView("corrections")}>수정신고 관리</button>
               </div>
             )}
@@ -3290,6 +3528,193 @@ function App() {
                 </tbody>
               </table>
             </div>
+          </section>
+        )}
+
+        {activeView === "income-report" && (
+          <section className="panel list-panel income-report-panel">
+            <div className="panel-header list-header">
+              <div>
+                <h2>종소세 결산 보고서</h2>
+                <p>{incomeReportYear} 귀속 · 올해 자료 기준으로 거래처 안내용 보고서 틀을 만듭니다.</p>
+              </div>
+              <div className="table-tools">
+                <select className="year-input" value={incomeReportYear} onChange={(event) => setIncomeReportYear(event.target.value)}>
+                  {yearOptions.map((year) => (
+                    <option key={year}>{year}</option>
+                  ))}
+                </select>
+                <select value={incomeReportClientKey} onChange={(event) => setIncomeReportClientId(event.target.value)}>
+                  {incomeReportClients.length === 0 ? (
+                    <option>개인 거래처 없음</option>
+                  ) : (
+                    incomeReportClients.map((client) => {
+                      const item = normalizeClient(client);
+                      return <option key={client.id} value={getFilingKey(client)}>{item.company_name}</option>;
+                    })
+                  )}
+                </select>
+                <label className="secondary-button file-button">
+                  신고서 PDF
+                  <input type="file" accept=".pdf,application/pdf" onChange={importIncomeReportPdf} disabled={incomeReportParsing} />
+                </label>
+                <button className="secondary-button" type="button" onClick={() => window.print()}>인쇄</button>
+              </div>
+            </div>
+
+            {!selectedIncomeReportClient ? (
+              <p className="empty-text">종합소득세 보고서를 만들 개인 거래처가 없습니다.</p>
+            ) : (
+              <>
+                <div className="report-summary-grid">
+                  <div>
+                    <span>신고서</span>
+                    <strong>{incomeReportUpload.fileName ? "업로드 완료" : "미업로드"}</strong>
+                  </div>
+                  <div>
+                    <span>종합소득금액</span>
+                    <strong>{valueOrDash(toNumber(getIncomeReportValue("totalIncome", "income_amount")))}</strong>
+                  </div>
+                  <div>
+                    <span>납부/환급세액</span>
+                    <strong>{valueOrDash(incomeReportTaxTotal)}</strong>
+                  </div>
+                  <div>
+                    <span>신고인</span>
+                    <strong>{incomeReportUpload.taxpayerName || normalizeClient(selectedIncomeReportClient).owner_name || "-"}</strong>
+                  </div>
+                </div>
+
+                {incomeReportUpload.fileName && (
+                  <div className="withholding-note">
+                    <strong>신고서 반영 완료</strong>
+                    <span>{incomeReportUpload.fileName}에서 추출한 금액을 보고서에 우선 반영합니다.</span>
+                  </div>
+                )}
+
+                <div className="income-report-layout">
+                  <div className="report-editor">
+                    <h2>보고서 코멘트</h2>
+                    <label>
+                      <span>결산 요약</span>
+                      <textarea
+                        value={currentIncomeReportNotes.summary}
+                        onChange={(event) => changeIncomeReportNote("summary", event.target.value)}
+                        placeholder="예: 올해 신고는 사업소득 중심으로 정리했으며, 예상 납부세액은 아래와 같습니다."
+                      />
+                    </label>
+                    <label>
+                      <span>주의 항목</span>
+                      <textarea
+                        value={currentIncomeReportNotes.risk}
+                        onChange={(event) => changeIncomeReportNote("risk", event.target.value)}
+                        placeholder="예: 적격증빙 부족, 인건비 자료, 사업용 카드 누락 여부 확인이 필요합니다."
+                      />
+                    </label>
+                    <label>
+                      <span>추가 요청자료</span>
+                      <textarea
+                        value={currentIncomeReportNotes.request}
+                        onChange={(event) => changeIncomeReportNote("request", event.target.value)}
+                        placeholder="예: 5월 20일까지 누락 영수증과 보험료 납입증명서를 전달 부탁드립니다."
+                      />
+                    </label>
+                    <label>
+                      <span>납부 안내</span>
+                      <textarea
+                        value={currentIncomeReportNotes.guide}
+                        onChange={(event) => changeIncomeReportNote("guide", event.target.value)}
+                        placeholder="예: 납부기한 전까지 세액을 준비해주시고, 분납 여부는 별도 안내드리겠습니다."
+                      />
+                    </label>
+                  </div>
+
+                  <article className="report-preview">
+                    <header>
+                      <span>{incomeReportYear} 귀속</span>
+                      <h2>종합소득세 결산 보고서</h2>
+                      <p>{normalizeClient(selectedIncomeReportClient).company_name}</p>
+                    </header>
+
+                    <section>
+                      <h3>1. 신고 개요</h3>
+                      <dl>
+                        <div>
+                          <dt>신고유형</dt>
+                          <dd>{incomeReportDetails.income_filing_type || "복식"}</dd>
+                        </div>
+                        <div>
+                          <dt>총수입금액</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.revenueTotal))}원</dd>
+                        </div>
+                        <div>
+                          <dt>필요경비</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.expenseTotal))}원</dd>
+                        </div>
+                        <div>
+                          <dt>종합소득금액</dt>
+                          <dd>{valueOrDash(toNumber(getIncomeReportValue("totalIncome", "income_amount")))}원</dd>
+                        </div>
+                        <div>
+                          <dt>소득공제</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.incomeDeduction))}원</dd>
+                        </div>
+                        <div>
+                          <dt>과세표준</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.taxBase))}원</dd>
+                        </div>
+                      </dl>
+                    </section>
+
+                    <section>
+                      <h3>2. 예상 세액</h3>
+                      <dl>
+                        <div>
+                          <dt>산출세액</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.calculatedTax))}원</dd>
+                        </div>
+                        <div>
+                          <dt>세액감면/공제</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.taxCredit))}원</dd>
+                        </div>
+                        <div>
+                          <dt>결정세액</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.determinedTax || incomeReportDetails.global_income_tax))}원</dd>
+                        </div>
+                        <div>
+                          <dt>기납부세액</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.prepaidTax || incomeReportDetails.pre_notice))}원</dd>
+                        </div>
+                        <div>
+                          <dt>지방소득세</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportDetails.local_income_tax))}원</dd>
+                        </div>
+                        <div>
+                          <dt>농특세</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportDetails.rural_tax))}원</dd>
+                        </div>
+                        <div>
+                          <dt>납부/환급세액</dt>
+                          <dd>{valueOrDash(incomeReportTaxTotal)}원</dd>
+                        </div>
+                      </dl>
+                    </section>
+
+                    <section>
+                      <h3>3. 검토 의견</h3>
+                      <p>{currentIncomeReportNotes.summary || "올해 입력된 자료를 기준으로 종합소득세 결산 내용을 정리했습니다."}</p>
+                      <p>{currentIncomeReportNotes.risk || "추가 확인이 필요한 항목은 자료 수취 후 반영합니다."}</p>
+                    </section>
+
+                    <section>
+                      <h3>4. 요청 및 납부 안내</h3>
+                      <p>{currentIncomeReportNotes.request || "누락 자료가 있는 경우 신고 전까지 전달 부탁드립니다."}</p>
+                      <p>{currentIncomeReportNotes.guide || "최종 신고 전 예상세액과 납부 방법을 다시 안내드리겠습니다."}</p>
+                    </section>
+                  </article>
+                </div>
+              </>
+            )}
           </section>
         )}
 

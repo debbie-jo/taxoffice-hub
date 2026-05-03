@@ -2030,10 +2030,15 @@ function App() {
     })
     .filter((row) => row.appAmount > 0);
 
+  const statementRowsWithInput = useMemo(
+    () => statementReviewRows.filter((row) => toNumber(row.appAmount) > 0),
+    [statementReviewRows],
+  );
+
   const filteredStatementReviewRows = useMemo(() => {
-    if (statementStatusFilter === "전체") return statementReviewRows;
-    return statementReviewRows.filter((row) => row.status === statementStatusFilter);
-  }, [statementReviewRows, statementStatusFilter]);
+    if (statementStatusFilter === "전체") return statementRowsWithInput;
+    return statementRowsWithInput.filter((row) => row.status === statementStatusFilter);
+  }, [statementRowsWithInput, statementStatusFilter]);
 
   const reviewPeriodKey = useMemo(
     () => getReviewPeriodKey(reviewType, reviewYear, reviewMonth, reviewVatPeriod, reviewCorporateMode),
@@ -3181,7 +3186,7 @@ function App() {
             <div className="panel-header list-header">
               <div>
                 <h2>지급명세서</h2>
-                <p>{statementPeriodKey} · {selectedStatement.label} · 원천세 입력자료 {statementReviewRows.length}건 기준</p>
+                <p>{statementPeriodKey} · {selectedStatement.label} · 원천세 상세 입력자료 {statementRowsWithInput.length}건 기준</p>
               </div>
               <div className="table-tools">
                 <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="업체명, 사업자번호, 대표자 검색" />
@@ -3228,7 +3233,7 @@ function App() {
                 onClick={() => setStatementStatusFilter("일치")}
               >
                 <span>일치</span>
-                <strong>{statementReviewRows.filter((row) => row.status === "일치").length}건</strong>
+                <strong>{statementRowsWithInput.filter((row) => row.status === "일치").length}건</strong>
               </button>
               <button
                 className={statementStatusFilter === "차이" ? "active danger-card" : "danger-card"}
@@ -3236,7 +3241,7 @@ function App() {
                 onClick={() => setStatementStatusFilter("차이")}
               >
                 <span>차이</span>
-                <strong>{statementReviewRows.filter((row) => row.status === "차이").length}건</strong>
+                <strong>{statementRowsWithInput.filter((row) => row.status === "차이").length}건</strong>
               </button>
               <button
                 className={statementStatusFilter === "홈택스 없음" ? "active missing-card" : "missing-card"}
@@ -3244,7 +3249,7 @@ function App() {
                 onClick={() => setStatementStatusFilter("홈택스 없음")}
               >
                 <span>홈택스 없음</span>
-                <strong>{statementReviewRows.filter((row) => row.status === "홈택스 없음").length}건</strong>
+                <strong>{statementRowsWithInput.filter((row) => row.status === "홈택스 없음").length}건</strong>
               </button>
             </div>
 

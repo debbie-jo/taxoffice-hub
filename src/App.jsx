@@ -124,6 +124,8 @@ const sharedStateConfigs = [
   { key: "statementUploads", fallback: { rows: [] } },
   { key: "incomeReportNotes", fallback: {} },
   { key: "incomeReportUploads", fallback: {} },
+  { key: "incomeReportSavedReports", fallback: {} },
+  { key: "incomeExpenseRates", fallback: [] },
 ];
 
 const withholdingAmountFields = [
@@ -1078,16 +1080,58 @@ function sumNumbers(values) {
   return values.reduce((sum, value) => sum + value, 0);
 }
 
+function parseRateValue(value) {
+  const number = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(number) ? number : 0;
+}
+
+function normalizeExpenseRateRow(row) {
+  const code = onlyDigits(getCsvValue(row, ["업종코드", "업 종 코 드", "코드", "업종 코드", "업종"])).slice(0, 6);
+  if (!code || code.length !== 6) return null;
+
+  const simpleRate = parseRateValue(getCsvValue(row, ["단순경비율", "단 순 경 비 율", "기본율", "단순 기본율"]));
+  const standardRate = parseRateValue(getCsvValue(row, ["기준경비율", "기 준 경 비 율", "경비율"]));
+  const expenseRate = simpleRate || standardRate;
+
+  return {
+    code,
+    industryName: getCsvValue(row, ["업종명", "업 종 명", "세세분류", "업태명", "종목명"]),
+    simpleRate,
+    standardRate,
+    referenceIncomeRate: expenseRate ? Math.max(0, 100 - expenseRate) : 0,
+  };
+}
+
 function parseIncomeTaxReportFromPdfText(text) {
   const compactText = text.replace(/\s+/g, "");
-  const revenueTotal = sumNumbers(extractNumbersBetween(compactText, "⑨총수입금액", "⑩필요경비"));
-  const expenseTotal = sumNumbers(extractNumbersBetween(compactText, "⑩필요경비", "⑪소득금액"));
-  const businessIncomeTotal = sumNumbers(extractNumbersBetween(compactText, "⑪소득금액(⑨-⑩)", "⑫과세기간"));
-  const taxpayerName = compactText.match(/신고인(.+?)\(서명또는인\)/)?.[1] || "";
+  const industryCodeSectionStart = compactText.indexOf("⑧주업종코드");
+  const industryCodeSectionEnd = compactText.indexOf("⑨총수입금액", industryCodeSectionStart);
+  const industryCodeSection = industryCodeSectionStart >= 0
+    ? compactText.slice(industryCodeSectionStart, industryCodeSectionEnd > industryCodeSectionStart ? industryCodeSectionEnd : undefined)
+    : "";
+  const industryCodes = Array.from(new Set(industryCodeSection.match(/\d{6}/g) || []));
+  const revenues = extractNumbersBetween(compactText, "⑨총수입금액", "⑩필요경비");
+  const expenses = extractNumbersBetween(compactText, "⑩필요경비", "⑪소득금액");
+  const incomes = extractNumbersBetween(compactText, "⑪소득금액(⑨-⑩)", "⑫과세기간");
+  const businessRows = industryCodes.map((code, index) => ({
+    code,
+    revenue: revenues[index] || 0,
+    expense: expenses[index] || 0,
+    income: incomes[index] || 0,
+  })).filter((row) => row.revenue || row.expense || row.income);
+  const revenueTotal = sumNumbers(businessRows.map((row) => row.revenue));
+  const expenseTotal = sumNumbers(businessRows.map((row) => row.expense));
+  const businessIncomeTotal = sumNumbers(businessRows.map((row) => row.income));
+  const taxpayerName =
+    [...compactText.matchAll(/신고인([가-힣]{2,8})\(서명또는인\)/g)]
+      .map((match) => match[1])
+      .find((name) => name.length <= 5) || "";
 
   return {
     source: "pdf",
     taxpayerName,
+    industryCodes,
+    businessRows,
     revenueTotal: revenueTotal ? formatSignedNumberWithCommas(revenueTotal) : "",
     expenseTotal: expenseTotal ? formatSignedNumberWithCommas(expenseTotal) : "",
     businessIncomeTotal: businessIncomeTotal ? formatSignedNumberWithCommas(businessIncomeTotal) : "",
@@ -1102,6 +1146,21 @@ function parseIncomeTaxReportFromPdfText(text) {
     payableTax: extractNumberAfter(compactText, [/납부\(환급\)할총세액\(-\)(-?\d{1,3}(?:,\d{3})*)/]),
     dueTax: extractNumberAfter(compactText, [/신고기한내납부할세액\([^)]+\)(-?\d{1,3}(?:,\d{3})*)/]),
   };
+}
+
+function escapeCsvValue(value) {
+  const text = String(value ?? "");
+  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function downloadTextFile(filename, content, type = "text/csv;charset=utf-8") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function App() {
@@ -1119,7 +1178,7 @@ function App() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("전체");
   const [activeView, setActiveView] = useState("clients");
-  const [openMenus, setOpenMenus] = useState({ clients: true, filings: true, statements: true });
+  const [openMenus, setOpenMenus] = useState({ clients: true, filings: true, reports: true, statements: true });
   const [progressMonth, setProgressMonth] = useState(getCurrentMonth());
   const [progressItems, setProgressItems] = useState(() => readLocalState("bookkeepingProgress", {}));
   const [filingType, setFilingType] = useState("withholding");
@@ -1150,6 +1209,8 @@ function App() {
   const [incomeReportClientId, setIncomeReportClientId] = useState("");
   const [incomeReportNotes, setIncomeReportNotes] = useState(() => readLocalState("incomeReportNotes", {}));
   const [incomeReportUploads, setIncomeReportUploads] = useState(() => readLocalState("incomeReportUploads", {}));
+  const [incomeReportSavedReports, setIncomeReportSavedReports] = useState(() => readLocalState("incomeReportSavedReports", {}));
+  const [incomeExpenseRates, setIncomeExpenseRates] = useState(() => readLocalState("incomeExpenseRates", []));
   const [incomeReportParsing, setIncomeReportParsing] = useState(false);
   const [sharedStorageReady, setSharedStorageReady] = useState(false);
   const yearOptions = useMemo(() => getYearOptions(), []);
@@ -1192,6 +1253,8 @@ function App() {
       const nextStatementUploads = remoteStates.statementUploads ?? localStates.statementUploads;
       const nextIncomeReportNotes = remoteStates.incomeReportNotes ?? localStates.incomeReportNotes;
       const nextIncomeReportUploads = remoteStates.incomeReportUploads ?? localStates.incomeReportUploads;
+      const nextIncomeReportSavedReports = remoteStates.incomeReportSavedReports ?? localStates.incomeReportSavedReports;
+      const nextIncomeExpenseRates = remoteStates.incomeExpenseRates ?? localStates.incomeExpenseRates;
 
       setProgressItems(nextProgressItems);
       setFilingItems(nextFilingItems);
@@ -1201,6 +1264,8 @@ function App() {
       setStatementRows(nextStatementUploads.rows || []);
       setIncomeReportNotes(nextIncomeReportNotes || {});
       setIncomeReportUploads(nextIncomeReportUploads || {});
+      setIncomeReportSavedReports(nextIncomeReportSavedReports || {});
+      setIncomeExpenseRates(nextIncomeExpenseRates || []);
       setSharedStorageReady(true);
 
       const missingRows = sharedStateConfigs
@@ -2311,20 +2376,63 @@ function App() {
     : {};
   const incomeReportNoteKey = selectedIncomeReportClient ? `${incomeReportYear}-${incomeReportClientKey}` : "";
   const incomeReportUpload = incomeReportUploads[incomeReportNoteKey] || {};
+  const savedIncomeReport = incomeReportSavedReports[incomeReportNoteKey] || null;
   const currentIncomeReportNotes = incomeReportNotes[incomeReportNoteKey] || {
     summary: "",
     risk: "",
-    request: "",
-    guide: "",
+    industryAverageRate: "",
+    localIncomeTax: "",
+    ruralTax: "",
+    comparison: "",
+    closing: "",
   };
 
+  const editableLocalIncomeTax = currentIncomeReportNotes.localIncomeTax || incomeReportDetails.local_income_tax || "";
+  const editableRuralTax = currentIncomeReportNotes.ruralTax || incomeReportDetails.rural_tax || "";
   const incomeReportTaxTotal =
     toNumber(incomeReportUpload.dueTax || incomeReportDetails.global_income_tax) +
-    toNumber(incomeReportDetails.local_income_tax) +
-    toNumber(incomeReportDetails.rural_tax);
+    toNumber(editableLocalIncomeTax) +
+    toNumber(editableRuralTax);
 
   function getIncomeReportValue(uploadField, detailField) {
     return incomeReportUpload[uploadField] || incomeReportDetails[detailField] || "";
+  }
+
+  const incomeReportRevenue = toNumber(incomeReportUpload.revenueTotal);
+  const incomeReportBusinessIncome = toNumber(incomeReportUpload.businessIncomeTotal || getIncomeReportValue("totalIncome", "income_amount"));
+  const incomeReportIncomeRate = incomeReportRevenue ? (incomeReportBusinessIncome / incomeReportRevenue) * 100 : 0;
+
+  function getOfficeIndustryAverageRate(code) {
+    const rates = Object.values(incomeReportSavedReports)
+      .filter((report) => String(report.year) === String(incomeReportYear))
+      .flatMap((report) => report.totals?.businessRows || [])
+      .filter((row) => row.code === code && toNumber(row.incomeRate) > 0)
+      .map((row) => toNumber(row.incomeRate));
+
+    return rates.length ? rates.reduce((sum, value) => sum + value, 0) / rates.length : 0;
+  }
+
+  const incomeReportBusinessRows = (incomeReportUpload.businessRows?.length
+    ? incomeReportUpload.businessRows
+    : (incomeReportUpload.industryCodes || []).map((code) => ({ code, revenue: 0, expense: 0, income: 0 }))
+  ).map((row) => {
+    const rateInfo = incomeExpenseRates.find((rate) => rate.code === row.code) || null;
+    const incomeRate = row.revenue ? (toNumber(row.income) / toNumber(row.revenue)) * 100 : 0;
+    const officeAverageRate = getOfficeIndustryAverageRate(row.code);
+    const referenceRate = officeAverageRate || rateInfo?.referenceIncomeRate || 0;
+
+    return {
+      ...row,
+      industryName: rateInfo?.industryName || "",
+      incomeRate,
+      referenceRate,
+      referenceSource: officeAverageRate ? "사무실 평균" : rateInfo ? "국세청 경비율" : "",
+      gap: referenceRate ? incomeRate - referenceRate : 0,
+    };
+  });
+
+  function formatRate(value) {
+    return value ? `${value.toFixed(1)}%` : "-";
   }
 
   function changeIncomeReportNote(field, value) {
@@ -2376,6 +2484,209 @@ function App() {
     } finally {
       setIncomeReportParsing(false);
     }
+  }
+
+  function findIncomeReportClient(parsed) {
+    const taxpayerName = normalizeHeaderName(parsed.taxpayerName);
+    if (!taxpayerName) return null;
+
+    return incomeReportClients.find((client) => {
+      const item = normalizeClient(client);
+      const ownerName = normalizeHeaderName(item.owner_name);
+      const companyName = normalizeHeaderName(item.company_name);
+      return ownerName === taxpayerName || companyName === taxpayerName || companyName.includes(taxpayerName);
+    }) || null;
+  }
+
+  async function importIncomeReportPdfs(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    setIncomeReportParsing(true);
+    setMessage(`종소세 신고서 ${files.length}개를 읽는 중입니다.`);
+
+    let imported = 0;
+    let unmatched = 0;
+    const nextUploads = { ...incomeReportUploads };
+
+    try {
+      for (const file of files) {
+        const text = await extractPdfText(file);
+        const parsed = parseIncomeTaxReportFromPdfText(text);
+        const matchedClient = findIncomeReportClient(parsed);
+
+        if (!matchedClient) {
+          unmatched += 1;
+          continue;
+        }
+
+        const key = `${incomeReportYear}-${getFilingKey(matchedClient)}`;
+        nextUploads[key] = {
+          ...parsed,
+          fileName: file.name,
+          importedAt: new Date().toISOString(),
+        };
+        imported += 1;
+      }
+
+      setIncomeReportUploads(nextUploads);
+      persistSharedState("incomeReportUploads", nextUploads);
+      setMessage(`종소세 신고서 일괄 업로드 완료: 반영 ${imported}건, 거래처 매칭 실패 ${unmatched}건`);
+    } catch (error) {
+      setMessage(`종소세 신고서 일괄 업로드 실패: ${error.message || "PDF 형식을 확인해주세요."}`);
+    } finally {
+      setIncomeReportParsing(false);
+    }
+  }
+
+  async function importIncomeExpenseRates(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setMessage("기준/단순경비율 파일을 읽는 중입니다.");
+
+    try {
+      const rows = await parseUploadedRows(file);
+      const rates = rows.map(normalizeExpenseRateRow).filter(Boolean);
+      const uniqueRates = Array.from(new Map(rates.map((rate) => [rate.code, rate])).values());
+
+      if (uniqueRates.length === 0) {
+        setMessage("업종코드를 찾지 못했습니다. 국세청 기준/단순경비율 엑셀 파일인지 확인해주세요.");
+        return;
+      }
+
+      setIncomeExpenseRates(uniqueRates);
+      persistSharedState("incomeExpenseRates", uniqueRates);
+      setMessage(`기준/단순경비율 ${uniqueRates.length}개 업종을 불러왔습니다.`);
+    } catch (error) {
+      setMessage(`기준/단순경비율 파일을 읽지 못했습니다: ${error.message || "파일 형식을 확인해주세요."}`);
+    }
+  }
+
+  function saveIncomeReport() {
+    if (!selectedIncomeReportClient || !incomeReportNoteKey) return;
+    const client = normalizeClient(selectedIncomeReportClient);
+    const savedAt = new Date().toISOString();
+    const report = {
+      id: `${incomeReportNoteKey}-${Date.now()}`,
+      year: incomeReportYear,
+      clientId: selectedIncomeReportClient.id,
+      clientKey: incomeReportClientKey,
+      companyName: client.company_name,
+      ownerName: client.owner_name,
+      savedAt,
+      upload: incomeReportUpload,
+      notes: currentIncomeReportNotes,
+      totals: {
+        revenueTotal: incomeReportUpload.revenueTotal || "",
+        expenseTotal: incomeReportUpload.expenseTotal || "",
+        totalIncome: getIncomeReportValue("totalIncome", "income_amount"),
+        taxBase: incomeReportUpload.taxBase || "",
+        determinedTax: incomeReportUpload.determinedTax || incomeReportDetails.global_income_tax || "",
+        prepaidTax: incomeReportUpload.prepaidTax || incomeReportDetails.pre_notice || "",
+        payableTax: incomeReportUpload.payableTax || "",
+        dueTax: incomeReportUpload.dueTax || incomeReportDetails.global_income_tax || "",
+        taxTotal: formatSignedNumberWithCommas(incomeReportTaxTotal),
+        incomeRate: formatRate(incomeReportIncomeRate),
+        businessRows: incomeReportBusinessRows.map((row) => ({
+          code: row.code,
+          industryName: row.industryName,
+          revenue: formatSignedNumberWithCommas(row.revenue),
+          expense: formatSignedNumberWithCommas(row.expense),
+          income: formatSignedNumberWithCommas(row.income),
+          incomeRate: formatRate(row.incomeRate),
+          referenceRate: formatRate(row.referenceRate),
+          referenceSource: row.referenceSource,
+          gap: row.referenceRate ? `${row.gap > 0 ? "+" : ""}${row.gap.toFixed(1)}%p` : "",
+        })),
+      },
+    };
+
+    setIncomeReportSavedReports((prev) => {
+      const next = {
+        ...prev,
+        [incomeReportNoteKey]: report,
+      };
+
+      persistSharedState("incomeReportSavedReports", next);
+      return next;
+    });
+
+    setMessage(`${client.company_name} 종소세 보고서를 저장했습니다.`);
+  }
+
+  function deleteIncomeReportsForYear() {
+    const confirmed = window.confirm(`${incomeReportYear} 귀속 저장 보고서를 모두 삭제할까요? 삭제하면 되돌릴 수 없습니다.`);
+    if (!confirmed) return;
+
+    const prefix = `${incomeReportYear}-`;
+    const nextSavedReports = Object.fromEntries(
+      Object.entries(incomeReportSavedReports).filter(([key]) => !key.startsWith(prefix)),
+    );
+    const nextUploads = Object.fromEntries(
+      Object.entries(incomeReportUploads).filter(([key]) => !key.startsWith(prefix)),
+    );
+
+    setIncomeReportSavedReports(nextSavedReports);
+    setIncomeReportUploads(nextUploads);
+    persistSharedState("incomeReportSavedReports", nextSavedReports);
+    persistSharedState("incomeReportUploads", nextUploads);
+    setMessage(`${incomeReportYear} 귀속 종소세 보고서 저장본을 삭제했습니다.`);
+  }
+
+  function downloadIncomeReportsCsv() {
+    const reports = Object.values(incomeReportSavedReports).filter((report) => String(report.year) === String(incomeReportYear));
+    const headers = ["연도", "거래처", "대표자", "저장일", "업종코드", "업종명", "총수입금액", "필요경비", "소득금액", "업체 소득률", "참고 소득률", "평균 기준", "차이", "과세표준", "결정세액", "기납부세액", "납부/환급세액", "파일명"];
+    const rows = reports.map((report) => [
+      report.year,
+      report.companyName,
+      report.ownerName,
+      report.savedAt ? new Date(report.savedAt).toLocaleString("ko-KR") : "",
+      "",
+      "",
+      report.totals?.revenueTotal || report.upload?.revenueTotal || "",
+      report.totals?.expenseTotal || report.upload?.expenseTotal || "",
+      report.totals?.totalIncome || report.upload?.totalIncome || "",
+      report.totals?.incomeRate || "",
+      "",
+      "전체",
+      "",
+      report.totals?.taxBase || report.upload?.taxBase || "",
+      report.totals?.determinedTax || report.upload?.determinedTax || "",
+      report.totals?.prepaidTax || report.upload?.prepaidTax || "",
+      report.totals?.taxTotal || report.upload?.dueTax || "",
+      report.upload?.fileName || "",
+    ]).flatMap((summaryRow, index) => {
+      const report = reports[index];
+      const businessRows = report.totals?.businessRows || [];
+      return [
+        summaryRow,
+        ...businessRows.map((row) => [
+          report.year,
+          report.companyName,
+          report.ownerName,
+          report.savedAt ? new Date(report.savedAt).toLocaleString("ko-KR") : "",
+          row.code,
+          row.industryName,
+          row.revenue,
+          row.expense,
+          row.income,
+          row.incomeRate,
+          row.referenceRate,
+          row.referenceSource,
+          row.gap,
+          "",
+          "",
+          "",
+          "",
+          report.upload?.fileName || "",
+        ]),
+      ];
+    });
+    const csv = [headers, ...rows].map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+    downloadTextFile(`종소세_보고서_${incomeReportYear}.csv`, `\uFEFF${csv}`);
   }
 
   useEffect(() => {
@@ -2438,8 +2749,23 @@ function App() {
                   </button>
                 ))}
                 <button className={activeView === "review" ? "active" : ""} type="button" onClick={() => setActiveView("review")}>신고 검토</button>
-                <button className={activeView === "income-report" ? "active" : ""} type="button" onClick={() => setActiveView("income-report")}>종소세 보고서</button>
                 <button className={activeView === "corrections" ? "active" : ""} type="button" onClick={() => setActiveView("corrections")}>수정신고 관리</button>
+              </div>
+            )}
+          </div>
+          <div className="nav-group">
+            <button
+              className="nav-parent"
+              type="button"
+              onClick={() => setOpenMenus((prev) => ({ ...prev, reports: !prev.reports }))}
+              aria-expanded={openMenus.reports}
+            >
+              <span>보고서</span>
+              <span>{openMenus.reports ? "⌃" : "⌄"}</span>
+            </button>
+            {openMenus.reports && (
+              <div className="nav-children">
+                <button className={activeView === "income-report" ? "active" : ""} type="button" onClick={() => setActiveView("income-report")}>종소세 결산 보고서</button>
               </div>
             )}
           </div>
@@ -3558,6 +3884,17 @@ function App() {
                   신고서 PDF
                   <input type="file" accept=".pdf,application/pdf" onChange={importIncomeReportPdf} disabled={incomeReportParsing} />
                 </label>
+                <label className="secondary-button file-button">
+                  일괄 업로드
+                  <input type="file" accept=".pdf,application/pdf" multiple onChange={importIncomeReportPdfs} disabled={incomeReportParsing} />
+                </label>
+                <label className="secondary-button file-button">
+                  경비율 파일
+                  <input type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importIncomeExpenseRates} />
+                </label>
+                <button className="primary-button" type="button" onClick={saveIncomeReport}>보고서 저장</button>
+                <button className="secondary-button" type="button" onClick={downloadIncomeReportsCsv}>일괄 다운</button>
+                <button className="secondary-button danger-button" type="button" onClick={deleteIncomeReportsForYear}>일괄 삭제</button>
                 <button className="secondary-button" type="button" onClick={() => window.print()}>인쇄</button>
               </div>
             </div>
@@ -3580,8 +3917,12 @@ function App() {
                     <strong>{valueOrDash(incomeReportTaxTotal)}</strong>
                   </div>
                   <div>
-                    <span>신고인</span>
-                    <strong>{incomeReportUpload.taxpayerName || normalizeClient(selectedIncomeReportClient).owner_name || "-"}</strong>
+                    <span>업체 소득률</span>
+                    <strong>{formatRate(incomeReportIncomeRate)}</strong>
+                  </div>
+                  <div>
+                    <span>사업/임대 업종</span>
+                    <strong>{incomeReportBusinessRows.length ? `${incomeReportBusinessRows.length}개` : "-"}</strong>
                   </div>
                 </div>
 
@@ -3592,6 +3933,18 @@ function App() {
                   </div>
                 )}
 
+                <div className="saved-report-strip">
+                  <div>
+                    <span>저장 상태</span>
+                    <strong>{savedIncomeReport ? "저장됨" : "아직 저장 전"}</strong>
+                  </div>
+                  <p>
+                    {savedIncomeReport
+                      ? `${new Date(savedIncomeReport.savedAt).toLocaleString("ko-KR")} 저장 · ${savedIncomeReport.companyName}`
+                      : "PDF를 업로드하고 코멘트를 정리한 뒤 보고서 저장을 누르면 이 거래처 보고서가 Supabase에 저장됩니다."}
+                  </p>
+                </div>
+
                 <div className="income-report-layout">
                   <div className="report-editor">
                     <h2>보고서 코멘트</h2>
@@ -3600,31 +3953,45 @@ function App() {
                       <textarea
                         value={currentIncomeReportNotes.summary}
                         onChange={(event) => changeIncomeReportNote("summary", event.target.value)}
-                        placeholder="예: 올해 신고는 사업소득 중심으로 정리했으며, 예상 납부세액은 아래와 같습니다."
+                        placeholder="예: 신고서 기준으로 총수입금액, 필요경비, 소득금액과 최종 납부/환급세액을 정리했습니다."
                       />
                     </label>
                     <label>
-                      <span>주의 항목</span>
+                      <span>소득률 비교 의견</span>
                       <textarea
-                        value={currentIncomeReportNotes.risk}
-                        onChange={(event) => changeIncomeReportNote("risk", event.target.value)}
-                        placeholder="예: 적격증빙 부족, 인건비 자료, 사업용 카드 누락 여부 확인이 필요합니다."
+                        value={currentIncomeReportNotes.comparison}
+                        onChange={(event) => changeIncomeReportNote("comparison", event.target.value)}
+                        placeholder="예: 사업/임대소득은 업종별 수입금액 대비 소득률을 기준으로 검토했습니다."
                       />
                     </label>
+                    <div className="report-inline-fields">
+                      <label>
+                        <span>지방소득세</span>
+                        <input
+                          className="amount-input"
+                          value={editableLocalIncomeTax}
+                          onChange={(event) => changeIncomeReportNote("localIncomeTax", formatSignedNumberWithCommas(event.target.value))}
+                          placeholder="0"
+                          inputMode="decimal"
+                        />
+                      </label>
+                      <label>
+                        <span>농특세</span>
+                        <input
+                          className="amount-input"
+                          value={editableRuralTax}
+                          onChange={(event) => changeIncomeReportNote("ruralTax", formatSignedNumberWithCommas(event.target.value))}
+                          placeholder="0"
+                          inputMode="decimal"
+                        />
+                      </label>
+                    </div>
                     <label>
-                      <span>추가 요청자료</span>
+                      <span>마무리 안내</span>
                       <textarea
-                        value={currentIncomeReportNotes.request}
-                        onChange={(event) => changeIncomeReportNote("request", event.target.value)}
-                        placeholder="예: 5월 20일까지 누락 영수증과 보험료 납입증명서를 전달 부탁드립니다."
-                      />
-                    </label>
-                    <label>
-                      <span>납부 안내</span>
-                      <textarea
-                        value={currentIncomeReportNotes.guide}
-                        onChange={(event) => changeIncomeReportNote("guide", event.target.value)}
-                        placeholder="예: 납부기한 전까지 세액을 준비해주시고, 분납 여부는 별도 안내드리겠습니다."
+                        value={currentIncomeReportNotes.closing}
+                        onChange={(event) => changeIncomeReportNote("closing", event.target.value)}
+                        placeholder="예: 신고는 완료되었으며, 환급 또는 납부 진행 상황은 별도 확인 후 안내드리겠습니다."
                       />
                     </label>
                   </div>
@@ -3667,7 +4034,21 @@ function App() {
                     </section>
 
                     <section>
-                      <h3>2. 예상 세액</h3>
+                      <h3>2. 소득 구성</h3>
+                      <dl>
+                        <div>
+                          <dt>사업/임대소득</dt>
+                          <dd>{valueOrDash(toNumber(incomeReportUpload.businessIncomeTotal))}원</dd>
+                        </div>
+                        <div>
+                          <dt>그 외 종합소득</dt>
+                          <dd>{valueOrDash(Math.max(0, toNumber(incomeReportUpload.totalIncome) - toNumber(incomeReportUpload.businessIncomeTotal)))}원</dd>
+                        </div>
+                      </dl>
+                    </section>
+
+                    <section>
+                      <h3>3. 세액 요약</h3>
                       <dl>
                         <div>
                           <dt>산출세액</dt>
@@ -3687,11 +4068,11 @@ function App() {
                         </div>
                         <div>
                           <dt>지방소득세</dt>
-                          <dd>{valueOrDash(toNumber(incomeReportDetails.local_income_tax))}원</dd>
+                          <dd>{valueOrDash(toNumber(editableLocalIncomeTax))}원</dd>
                         </div>
                         <div>
                           <dt>농특세</dt>
-                          <dd>{valueOrDash(toNumber(incomeReportDetails.rural_tax))}원</dd>
+                          <dd>{valueOrDash(toNumber(editableRuralTax))}원</dd>
                         </div>
                         <div>
                           <dt>납부/환급세액</dt>
@@ -3701,15 +4082,50 @@ function App() {
                     </section>
 
                     <section>
-                      <h3>3. 검토 의견</h3>
-                      <p>{currentIncomeReportNotes.summary || "올해 입력된 자료를 기준으로 종합소득세 결산 내용을 정리했습니다."}</p>
-                      <p>{currentIncomeReportNotes.risk || "추가 확인이 필요한 항목은 자료 수취 후 반영합니다."}</p>
+                      <h3>4. 검토 의견</h3>
+                      <p>{currentIncomeReportNotes.summary || "신고서 기준으로 종합소득세 결산 내용을 정리했습니다."}</p>
                     </section>
 
                     <section>
-                      <h3>4. 요청 및 납부 안내</h3>
-                      <p>{currentIncomeReportNotes.request || "누락 자료가 있는 경우 신고 전까지 전달 부탁드립니다."}</p>
-                      <p>{currentIncomeReportNotes.guide || "최종 신고 전 예상세액과 납부 방법을 다시 안내드리겠습니다."}</p>
+                      <h3>5. 사업/임대 소득률 비교</h3>
+                      {incomeReportBusinessRows.length === 0 ? (
+                        <p>사업/임대소득 업종별 자료가 확인되지 않았습니다.</p>
+                      ) : (
+                        <div className="report-table-wrap">
+                          <table className="report-mini-table">
+                            <thead>
+                              <tr>
+                                <th>업종코드</th>
+                                <th>업종명</th>
+                                <th>수입금액</th>
+                                <th>소득금액</th>
+                                <th>업체 소득률</th>
+                                <th>참고 소득률</th>
+                                <th>차이</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {incomeReportBusinessRows.map((row) => (
+                                <tr key={row.code}>
+                                  <td>{row.code}</td>
+                                  <td>{row.industryName || "-"}</td>
+                                  <td>{valueOrDash(row.revenue)}</td>
+                                  <td>{valueOrDash(row.income)}</td>
+                                  <td>{formatRate(row.incomeRate)}</td>
+                                  <td>{row.referenceRate ? `${formatRate(row.referenceRate)} ${row.referenceSource ? `(${row.referenceSource})` : ""}` : "-"}</td>
+                                  <td>{row.referenceRate ? `${row.gap > 0 ? "+" : ""}${row.gap.toFixed(1)}%p` : "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      <p>{currentIncomeReportNotes.comparison || "사업/임대소득은 업종별 수입금액 대비 소득률을 기준으로 검토했습니다."}</p>
+                    </section>
+
+                    <section>
+                      <h3>6. 마무리 안내</h3>
+                      <p>{currentIncomeReportNotes.closing || "신고서 기준 결산 내용과 최종 납부/환급세액을 위와 같이 안내드립니다."}</p>
                     </section>
                   </article>
                 </div>

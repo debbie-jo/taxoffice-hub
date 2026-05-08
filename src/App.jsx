@@ -4354,7 +4354,9 @@ function App() {
                       <p>{currentIncomeReportNotes.closing || "신고서 기준 결산 내용과 최종 납부/환급세액을 위와 같이 안내드립니다."}</p>
                     </section>
 
-                    {currentIncomeReportNotes.showFee && (baseFee > 0 || currentIncomeReportNotes.bankAccount) && (
+                    {currentIncomeReportNotes.showFee && baseFee > 0 && (() => {
+                      const displayBankAccount = currentIncomeReportNotes.bankAccount ?? "기업은행 038-137878-01-027";
+                      return (
                       <section className="report-fee-section">
                         <h3>6. 수임료 안내</h3>
                         <dl className="report-fee-summary">
@@ -4383,9 +4385,7 @@ function App() {
                             <dd>{formatSignedNumberWithCommas(feeTotal)}원</dd>
                           </div>
                         </dl>
-                        {currentIncomeReportNotes.bankAccount && (
-                          <p className="report-fee-bank">입금 계좌: <strong>{currentIncomeReportNotes.bankAccount}</strong></p>
-                        )}
+                        <p className="report-fee-bank">입금 계좌: <strong>{displayBankAccount}</strong></p>
                         <table className="report-fee-schedule">
                           <caption>세무사 보수표 별표2 · 조정수수료</caption>
                           <thead>
@@ -4393,32 +4393,36 @@ function App() {
                               <th>연매출액</th>
                               <th>계산식</th>
                               <th>해당</th>
+                              <th>비고사항</th>
                             </tr>
                           </thead>
                           <tbody>
                             {[
-                              ["1억 미만", "400,000원"],
-                              ["1억 ~ 3억", "400,000 + 초과액 × 0.20%"],
-                              ["3억 ~ 5억", "800,000 + 초과액 × 0.10%"],
-                              ["5억 ~ 10억", "1,000,000 + 초과액 × 0.05%"],
-                              ["10억 ~ 30억", "1,250,000 + 초과액 × 0.04%"],
-                              ["30억 ~ 50억", "2,050,000 + 초과액 × 0.03%"],
-                              ["50억 ~ 100억", "2,650,000 + 초과액 × 0.02%"],
-                              ["100억 ~ 500억", "3,650,000 + 초과액 × 0.01%"],
-                              ["500억 이상", "7,650,000 + 초과액 × 0.005%"],
-                            ].map(([range, formula]) => {
+                              ["1억 미만",    "400,000원",                    "원가계산 시 20% 가산"],
+                              ["1억 ~ 3억",   "400,000 + 초과액 × 0.20%",    ""],
+                              ["3억 ~ 5억",   "800,000 + 초과액 × 0.10%",    "결산 함께 수행 시 10% 가산"],
+                              ["5억 ~ 10억",  "1,000,000 + 초과액 × 0.05%",  "결산 함께 수행 시 10% 가산"],
+                              ["10억 ~ 30억", "1,250,000 + 초과액 × 0.04%",  "특수업종(임대,숙박,병의원,학원) 30% 가산"],
+                              ["30억 ~ 50억", "2,050,000 + 초과액 × 0.03%",  "특수업종(임대,숙박,병의원,학원) 30% 가산"],
+                              ["50억 ~ 100억","2,650,000 + 초과액 × 0.02%",  "특수업종(임대,숙박,병의원,학원) 30% 가산"],
+                              ["100억 ~ 500억","3,650,000 + 초과액 × 0.01%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
+                              ["500억 이상",  "7,650,000 + 초과액 × 0.005%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
+                            ].map(([range, formula, note]) => {
                               const current = isCurrentTier(incomeReportRevenue, range);
                               return (
                                 <tr key={range} className={current ? "fee-schedule-current" : ""}>
                                   <td>{range}</td>
                                   <td>{formula}</td>
-                                  <td>{current ? "▶" : ""}</td>
+                                  <td className="fee-schedule-check">{current ? "▶" : ""}</td>
+                                  <td className="fee-schedule-note">{note}</td>
                                 </tr>
                               );
                             })}
                           </tbody>
                         </table>
                       </section>
+                      );
+                    })()}
                     )}
                   </article>
                 </div>

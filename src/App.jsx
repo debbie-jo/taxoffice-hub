@@ -4389,15 +4389,15 @@ function App() {
                         <table className="report-fee-schedule" style={{tableLayout:"fixed",width:"100%"}}>
                           <colgroup>
                             <col style={{width:"22%"}} />
-                            <col style={{width:"71%"}} />
-                            <col style={{width:"7%"}} />
+                            <col style={{width:"43%"}} />
+                            <col style={{width:"35%"}} />
                           </colgroup>
                           <caption>세무사 보수표 별표2 · 조정수수료</caption>
                           <thead>
                             <tr>
                               <th style={{width:"22%"}}>연매출액</th>
-                              <th style={{width:"71%"}}>계산식 / 비고사항</th>
-                              <th style={{width:"7%"}}>해당</th>
+                              <th style={{width:"43%"}}>계산식</th>
+                              <th style={{width:"35%"}}>비고사항</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -4416,11 +4416,8 @@ function App() {
                               return (
                                 <tr key={range} className={current ? "fee-schedule-current" : ""}>
                                   <td>{range}</td>
-                                  <td>
-                                    {formula}
-                                    {note && <span className="fee-schedule-note" style={{display:"block",marginTop:"1px"}}>{note}</span>}
-                                  </td>
-                                  <td className="fee-schedule-check">{current ? "▶" : ""}</td>
+                                  <td>{formula}</td>
+                                  <td className="fee-schedule-note">{note}</td>
                                 </tr>
                               );
                             })}

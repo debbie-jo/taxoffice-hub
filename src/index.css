@@ -1254,16 +1254,13 @@ tbody tr:hover td:last-child {
 }
 
 .report-fee-schedule th:nth-child(1),
-.report-fee-schedule td:nth-child(1) { width: 17%; }
+.report-fee-schedule td:nth-child(1) { width: 22%; }
 
 .report-fee-schedule th:nth-child(2),
-.report-fee-schedule td:nth-child(2) { width: 39%; }
+.report-fee-schedule td:nth-child(2) { width: 43%; }
 
 .report-fee-schedule th:nth-child(3),
-.report-fee-schedule td:nth-child(3) { width: 8%; }
-
-.report-fee-schedule th:nth-child(4),
-.report-fee-schedule td:nth-child(4) { width: 36%; }
+.report-fee-schedule td:nth-child(3) { width: 35%; }
 
 .report-fee-schedule caption {
   text-align: left;
@@ -1902,16 +1899,13 @@ tbody tr:hover td:last-child {
   }
 
   .report-fee-schedule th:nth-child(1),
-  .report-fee-schedule td:nth-child(1) { width: 17%; }
+  .report-fee-schedule td:nth-child(1) { width: 22%; }
 
   .report-fee-schedule th:nth-child(2),
-  .report-fee-schedule td:nth-child(2) { width: 39%; }
+  .report-fee-schedule td:nth-child(2) { width: 43%; }
 
   .report-fee-schedule th:nth-child(3),
-  .report-fee-schedule td:nth-child(3) { width: 7%; }
-
-  .report-fee-schedule th:nth-child(4),
-  .report-fee-schedule td:nth-child(4) { width: 37%; }
+  .report-fee-schedule td:nth-child(3) { width: 35%; }
 
   .report-fee-schedule caption {
     font-size: 7.5px;

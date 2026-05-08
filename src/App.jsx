@@ -4402,13 +4402,14 @@ function App() {
                             ["50억 ~ 100억", "2,650,000 + 초과액 × 0.02%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
                             ["100억 ~ 500억","3,650,000 + 초과액 × 0.01%",  "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
                             ["500억 이상",   "7,650,000 + 초과액 × 0.005%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
-                          ].map(([range, formula, note]) => {
+                          ].map(([range, formula, note], idx, arr) => {
                             const current = isCurrentTier(incomeReportRevenue, range);
+                            const showNote = note && arr.findIndex(([,,n]) => n === note) === idx;
                             return (
                               <div key={range} className={`fee-grid-row${current ? " fee-grid-current" : ""}`}>
                                 <span>{range}</span>
                                 <span>{formula}</span>
-                                <span>{note}</span>
+                                <span>{showNote ? note : ""}</span>
                               </div>
                             );
                           })}

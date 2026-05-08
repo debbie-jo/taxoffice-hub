@@ -2428,6 +2428,8 @@ function App() {
     ruralTax: "",
     comparison: "",
     closing: "",
+    adjustmentFee: "",
+    bankAccount: "",
   };
 
   const editableLocalIncomeTax = currentIncomeReportNotes.localIncomeTax || incomeReportDetails.local_income_tax || "";
@@ -4072,6 +4074,27 @@ function App() {
                         placeholder="예: 신고는 완료되었으며, 환급 또는 납부 진행 상황은 별도 확인 후 안내드리겠습니다."
                       />
                     </label>
+                    <div className="report-inline-fields">
+                      <label>
+                        <span>조정료</span>
+                        <input
+                          className="amount-input"
+                          value={currentIncomeReportNotes.adjustmentFee}
+                          onChange={(event) => changeIncomeReportNote("adjustmentFee", formatSignedNumberWithCommas(event.target.value))}
+                          placeholder="0"
+                          inputMode="decimal"
+                        />
+                      </label>
+                      <label>
+                        <span>입금 계좌번호</span>
+                        <input
+                          style={{ width: "100%" }}
+                          value={currentIncomeReportNotes.bankAccount}
+                          onChange={(event) => changeIncomeReportNote("bankAccount", event.target.value)}
+                          placeholder="예: 국민은행 000000-00-000000"
+                        />
+                      </label>
+                    </div>
                   </div>
 
                   <article className="report-preview">
@@ -4205,6 +4228,26 @@ function App() {
                       <h3>6. 마무리 안내</h3>
                       <p>{currentIncomeReportNotes.closing || "신고서 기준 결산 내용과 최종 납부/환급세액을 위와 같이 안내드립니다."}</p>
                     </section>
+
+                    {(currentIncomeReportNotes.adjustmentFee || currentIncomeReportNotes.bankAccount) && (
+                      <section className="report-fee-section">
+                        <h3>7. 수임료 안내</h3>
+                        <div className="report-fee-box">
+                          {currentIncomeReportNotes.adjustmentFee && (
+                            <div className="report-fee-row">
+                              <span>조정료</span>
+                              <strong>{currentIncomeReportNotes.adjustmentFee}원</strong>
+                            </div>
+                          )}
+                          {currentIncomeReportNotes.bankAccount && (
+                            <div className="report-fee-row">
+                              <span>입금 계좌</span>
+                              <strong>{currentIncomeReportNotes.bankAccount}</strong>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    )}
                   </article>
                 </div>
               </>

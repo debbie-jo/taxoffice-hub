@@ -1183,6 +1183,38 @@ tbody tr:hover td:last-child {
   font-weight: 900 !important;
 }
 
+/* 수임료 섹션 */
+.report-fee-section {
+  background: #f0f9f7;
+}
+
+.report-fee-box {
+  display: grid;
+  gap: 8px;
+}
+
+.report-fee-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d0e8e4;
+  border-radius: 8px;
+  padding: 11px 14px;
+}
+
+.report-fee-row span {
+  font-size: 13px;
+  color: #7a9590;
+  font-weight: 600;
+}
+
+.report-fee-row strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f4c45;
+}
+
 /* 소득률 비교 테이블 */
 .report-table-wrap {
   overflow-x: auto;
@@ -1534,7 +1566,7 @@ tbody tr:hover td:last-child {
 @media print {
   @page {
     size: A4;
-    margin: 10mm 12mm;
+    margin: 5mm 10mm 8mm;  /* 크롬 머리말/바닥글 공간 최소화 */
   }
 
   * {
@@ -1710,6 +1742,23 @@ tbody tr:hover td:last-child {
   .report-mini-table td {
     padding: 6px 7px;
     font-size: 9.5px;
+  }
+
+  .report-fee-section {
+    background: #f0f9f7 !important;
+  }
+
+  .report-fee-row {
+    padding: 7px 10px;
+    border-radius: 5px;
+  }
+
+  .report-fee-row span {
+    font-size: 9.5px;
+  }
+
+  .report-fee-row strong {
+    font-size: 13px;
   }
 }
 

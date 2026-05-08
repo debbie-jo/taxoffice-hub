@@ -1188,7 +1188,12 @@ function parseIncomeTaxReportFromPdfText(text) {
     taxBase: extractNumberAfter(compactText, [/과세표준\(-\)(-?\d{1,3}(?:,\d{3})*)/]),
     taxRate: compactText.match(/세율([0-9.]+%)/)?.[1] || "",
     calculatedTax: extractNumberAfter(compactText, [/산출세액(-?\d{1,3}(?:,\d{3})*)/]),
-    taxCredit: extractNumberAfter(compactText, [/세액감면세액공제(-?\d{1,3}(?:,\d{3})*)/]),
+    taxCredit: (() => {
+      const reduction = toNumber(compactText.match(/세액감면(\d{1,3}(?:,\d{3})*)/)?.[1] || "0");
+      const credit = toNumber(compactText.match(/세액공제(\d{1,3}(?:,\d{3})*)/)?.[1] || "0");
+      const total = reduction + credit;
+      return total > 0 ? formatSignedNumberWithCommas(String(total)) : "";
+    })(),
     determinedTax: extractNumberAfter(compactText, [/결정세액종합과세\([^)]+\)(-?\d{1,3}(?:,\d{3})*)/]),
     prepaidTax: extractNumberAfter(compactText, [/기납부세액(-?\d{1,3}(?:,\d{3})*)/]),
     payableTax: extractNumberAfter(compactText, [/납부\(환급\)할총세액\(-\)(-?\d{1,3}(?:,\d{3})*)/]),

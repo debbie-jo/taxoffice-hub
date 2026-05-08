@@ -1816,10 +1816,7 @@ tbody tr:hover td:last-child {
   }
 
   .report-fee-layout {
-    display: grid;
-    grid-template-columns: minmax(min-content, 180px) 1fr;
-    gap: 8px;
-    align-items: start;
+    display: block;
   }
 
   .report-fee-row {
@@ -1856,6 +1853,8 @@ tbody tr:hover td:last-child {
   .report-fee-schedule {
     font-size: 7.5px;
     margin-top: 0;
+    break-before: page;
+    width: 100%;
   }
 
   .report-fee-schedule caption {

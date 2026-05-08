@@ -1628,7 +1628,7 @@ tbody tr:hover td:last-child {
 @media print {
   @page {
     size: A4;
-    margin: 5mm 10mm 8mm;  /* 크롬 머리말/바닥글 공간 최소화 */
+    margin: 3mm 8mm 4mm;
   }
 
   * {
@@ -1708,33 +1708,33 @@ tbody tr:hover td:last-child {
   .report-preview header {
     background: #0f4c45 !important;
     color: #ffffff;
-    padding: 14px 18px 12px;
+    padding: 9px 16px 8px;
     border-radius: 0;
   }
 
   .report-preview header span {
     color: #a8dbd5;
-    font-size: 9px;
-    margin-bottom: 3px;
+    font-size: 8px;
+    margin-bottom: 2px;
   }
 
   .report-preview header h2 {
-    margin: 0 0 4px;
+    margin: 0 0 2px;
     color: #ffffff;
-    font-size: 20px;
+    font-size: 17px;
     letter-spacing: -0.3px;
   }
 
   .report-preview header p {
     margin: 0;
     color: #c8ede9;
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .report-preview section {
     break-inside: avoid;
     border-bottom: 1px solid #e2e8f0;
-    padding: 10px 18px;
+    padding: 7px 16px;
   }
 
   .report-preview section:last-child {
@@ -1742,68 +1742,68 @@ tbody tr:hover td:last-child {
   }
 
   .report-preview h3 {
-    margin-bottom: 7px;
-    font-size: 9px;
+    margin-bottom: 5px;
+    font-size: 8.5px;
     color: #0f4c45;
     letter-spacing: 0.5px;
   }
 
   .report-preview p {
-    margin-top: 5px;
-    font-size: 9.5px;
-    line-height: 1.5;
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.4;
     color: #334155;
   }
 
   .report-preview dl {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 5px;
+    gap: 4px;
   }
 
   .report-preview dl div {
     border: 1px solid #e2eceb;
-    border-radius: 5px;
+    border-radius: 4px;
     background: #f7faf9;
-    padding: 6px 8px;
-    gap: 2px;
+    padding: 4px 7px;
+    gap: 1px;
   }
 
   .report-preview dt {
-    font-size: 8.5px;
+    font-size: 7.5px;
     color: #7a9590;
   }
 
   .report-preview dd {
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 11px;
+    font-weight: 700;
   }
 
   .report-tax-total {
-    padding: 8px 12px !important;
-    border-radius: 6px !important;
+    padding: 6px 10px !important;
+    border-radius: 5px !important;
   }
 
   .report-tax-total dt {
-    font-size: 11px !important;
+    font-size: 9.5px !important;
   }
 
   .report-tax-total dd {
-    font-size: 18px !important;
+    font-size: 16px !important;
   }
 
   .report-mini-table {
     min-width: 0;
-    font-size: 9.5px;
-  }
-
-  .report-mini-table th {
-    padding: 5px 7px;
     font-size: 8.5px;
   }
 
+  .report-mini-table th {
+    padding: 3px 6px;
+    font-size: 7.5px;
+  }
+
   .report-mini-table td {
-    padding: 6px 7px;
-    font-size: 9.5px;
+    padding: 4px 6px;
+    font-size: 8.5px;
   }
 
   .report-fee-section {
@@ -1816,54 +1816,56 @@ tbody tr:hover td:last-child {
   }
 
   .report-fee-layout {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(min-content, 170px) 1fr;
+    gap: 6px;
+    align-items: start;
   }
 
   .report-fee-row {
-    padding: 3px 7px;
+    padding: 2px 6px;
     border-radius: 3px;
     white-space: nowrap;
   }
 
   .report-fee-row span {
-    font-size: 8px;
+    font-size: 7.5px;
     font-weight: 400;
   }
 
   .report-fee-row strong {
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 600;
     white-space: nowrap;
   }
 
   .report-fee-total {
-    padding: 5px 8px !important;
+    padding: 4px 7px !important;
   }
 
   .report-fee-total dt {
-    font-size: 8.5px !important;
+    font-size: 8px !important;
     font-weight: 500 !important;
   }
 
   .report-fee-total dd {
-    font-size: 13px !important;
+    font-size: 12px !important;
     font-weight: 700 !important;
   }
 
   .report-fee-schedule {
-    font-size: 7.5px;
+    font-size: 7px;
     margin-top: 0;
-    break-before: page;
     width: 100%;
   }
 
   .report-fee-schedule caption {
-    font-size: 7.5px;
+    font-size: 7px;
   }
 
   .report-fee-schedule th,
   .report-fee-schedule td {
-    padding: 2px 5px;
+    padding: 1.5px 4px;
   }
 }
 

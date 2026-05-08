@@ -4388,18 +4388,16 @@ function App() {
                         <p className="report-fee-bank">입금 계좌: <strong>{displayBankAccount}</strong></p>
                         <table className="report-fee-schedule" style={{tableLayout:"fixed",width:"100%"}}>
                           <colgroup>
-                            <col style={{width:"17%"}} />
-                            <col style={{width:"39%"}} />
+                            <col style={{width:"22%"}} />
+                            <col style={{width:"71%"}} />
                             <col style={{width:"7%"}} />
-                            <col style={{width:"37%"}} />
                           </colgroup>
                           <caption>세무사 보수표 별표2 · 조정수수료</caption>
                           <thead>
                             <tr>
-                              <th style={{width:"17%"}}>연매출액</th>
-                              <th style={{width:"39%"}}>계산식</th>
+                              <th style={{width:"22%"}}>연매출액</th>
+                              <th style={{width:"71%"}}>계산식 / 비고사항</th>
                               <th style={{width:"7%"}}>해당</th>
-                              <th style={{width:"37%"}}>비고사항</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -4408,19 +4406,21 @@ function App() {
                               ["1억 ~ 3억",   "400,000 + 초과액 × 0.20%",    ""],
                               ["3억 ~ 5억",   "800,000 + 초과액 × 0.10%",    "결산 함께 수행 시 10% 가산"],
                               ["5억 ~ 10억",  "1,000,000 + 초과액 × 0.05%",  "결산 함께 수행 시 10% 가산"],
-                              ["10억 ~ 30억", "1,250,000 + 초과액 × 0.04%",  "특수업종(임대,숙박,병의원,학원) 30% 가산"],
-                              ["30억 ~ 50억", "2,050,000 + 초과액 × 0.03%",  "특수업종(임대,숙박,병의원,학원) 30% 가산"],
-                              ["50억 ~ 100억","2,650,000 + 초과액 × 0.02%",  "특수업종(임대,숙박,병의원,학원) 30% 가산"],
+                              ["10억 ~ 30억", "1,250,000 + 초과액 × 0.04%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
+                              ["30억 ~ 50억", "2,050,000 + 초과액 × 0.03%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
+                              ["50억 ~ 100억","2,650,000 + 초과액 × 0.02%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
                               ["100억 ~ 500억","3,650,000 + 초과액 × 0.01%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
                               ["500억 이상",  "7,650,000 + 초과액 × 0.005%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
                             ].map(([range, formula, note]) => {
                               const current = isCurrentTier(incomeReportRevenue, range);
                               return (
                                 <tr key={range} className={current ? "fee-schedule-current" : ""}>
-                                  <td style={{overflow:"hidden",wordBreak:"keep-all"}}>{range}</td>
-                                  <td style={{overflow:"hidden",wordBreak:"keep-all"}}>{formula}</td>
-                                  <td className="fee-schedule-check" style={{textAlign:"center"}}>{current ? "▶" : ""}</td>
-                                  <td className="fee-schedule-note" style={{overflow:"hidden",wordBreak:"break-all",fontSize:"0.85em"}}>{note}</td>
+                                  <td>{range}</td>
+                                  <td>
+                                    {formula}
+                                    {note && <span className="fee-schedule-note" style={{display:"block",marginTop:"1px"}}>{note}</span>}
+                                  </td>
+                                  <td className="fee-schedule-check">{current ? "▶" : ""}</td>
                                 </tr>
                               );
                             })}

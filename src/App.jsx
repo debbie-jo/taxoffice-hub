@@ -604,6 +604,7 @@ function parseBinaryXlsRows(buffer) {
   const sharedStrings = [];
   records.forEach((record) => {
     if (record.id !== 0x00fc) return;
+    if (record.offset + record.length > workbook.length) return;
 
     const bodyView = new DataView(workbook.buffer, record.offset, record.length);
     let position = 8;
@@ -625,6 +626,7 @@ function parseBinaryXlsRows(buffer) {
   };
 
   records.forEach((record) => {
+    if (record.offset + record.length > workbook.length) return;
     const bodyView = new DataView(workbook.buffer, record.offset, record.length);
     if (record.id === 0x00fd) {
       setCell(bodyView.getUint16(0, true), bodyView.getUint16(2, true), sharedStrings[bodyView.getUint32(6, true)] || "");
@@ -738,7 +740,12 @@ async function parseUploadedRows(file) {
   const bytes = new Uint8Array(buffer);
 
   if (bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) {
-    return parseBinaryXlsRows(buffer);
+    try {
+      const rows = parseBinaryXlsRows(buffer);
+      if (rows.length > 0) return rows;
+    } catch {
+      // xls 파싱 실패 시 xlsx로 재시도
+    }
   }
 
   if (name.endsWith(".xlsx") || (bytes[0] === 0x50 && bytes[1] === 0x4b)) {

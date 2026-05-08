@@ -4357,6 +4357,7 @@ function App() {
                     {currentIncomeReportNotes.showFee && (baseFee > 0 || currentIncomeReportNotes.bankAccount) && (
                       <section className="report-fee-section">
                         <h3>7. 수임료 안내</h3>
+                        <div className="report-fee-layout">
                         <div className="report-fee-box">
                           <div className="report-fee-row">
                             <span>조정료</span>
@@ -4421,6 +4422,7 @@ function App() {
                             })}
                           </tbody>
                         </table>
+                        </div>
                       </section>
                     )}
                   </article>

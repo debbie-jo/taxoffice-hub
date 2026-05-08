@@ -1807,27 +1807,55 @@ tbody tr:hover td:last-child {
     background: #f0f9f7 !important;
   }
 
+  /* 수임료 + 보수표 가로 배치 */
+  .report-fee-section > h3 {
+    margin-bottom: 5px;
+  }
+
+  .report-fee-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+
   .report-fee-row {
-    padding: 5px 8px;
-    border-radius: 4px;
+    padding: 4px 7px;
+    border-radius: 3px;
   }
 
   .report-fee-row span {
-    font-size: 9px;
+    font-size: 8.5px;
   }
 
   .report-fee-row strong {
-    font-size: 11px;
+    font-size: 10px;
+  }
+
+  .report-fee-total {
+    padding: 6px 10px !important;
+  }
+
+  .report-fee-total dt {
+    font-size: 9px !important;
+  }
+
+  .report-fee-total dd {
+    font-size: 14px !important;
   }
 
   .report-fee-schedule {
-    font-size: 8.5px;
-    margin-top: 8px;
+    font-size: 7.5px;
+    margin-top: 0;
+  }
+
+  .report-fee-schedule caption {
+    font-size: 7.5px;
   }
 
   .report-fee-schedule th,
   .report-fee-schedule td {
-    padding: 3px 6px;
+    padding: 2px 5px;
   }
 }
 

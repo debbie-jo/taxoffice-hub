@@ -1147,14 +1147,14 @@ tbody tr:hover td:last-child {
 .report-preview dt {
   font-size: 11px;
   color: #7a9590;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.2px;
 }
 
 .report-preview dd {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   color: #162033;
   letter-spacing: -0.3px;
 }
@@ -1200,19 +1200,22 @@ tbody tr:hover td:last-child {
   background: #ffffff;
   border: 1px solid #d0e8e4;
   border-radius: 8px;
-  padding: 11px 14px;
+  padding: 9px 12px;
+  white-space: nowrap;
+  gap: 8px;
 }
 
 .report-fee-row span {
-  font-size: 13px;
+  font-size: 12px;
   color: #7a9590;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .report-fee-row strong {
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 600;
   color: #0f4c45;
+  white-space: nowrap;
 }
 
 /* 보수표 */
@@ -1814,34 +1817,40 @@ tbody tr:hover td:last-child {
 
   .report-fee-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(min-content, 180px) 1fr;
     gap: 8px;
     align-items: start;
   }
 
   .report-fee-row {
-    padding: 4px 7px;
+    padding: 3px 7px;
     border-radius: 3px;
+    white-space: nowrap;
   }
 
   .report-fee-row span {
-    font-size: 8.5px;
+    font-size: 8px;
+    font-weight: 400;
   }
 
   .report-fee-row strong {
-    font-size: 10px;
+    font-size: 9.5px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .report-fee-total {
-    padding: 6px 10px !important;
+    padding: 5px 8px !important;
   }
 
   .report-fee-total dt {
-    font-size: 9px !important;
+    font-size: 8.5px !important;
+    font-weight: 500 !important;
   }
 
   .report-fee-total dd {
-    font-size: 14px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
   }
 
   .report-fee-schedule {

@@ -4308,12 +4308,7 @@ function App() {
                     </section>
 
                     <section>
-                      <h3>4. 검토 의견</h3>
-                      <p>{currentIncomeReportNotes.summary || "신고서 기준으로 종합소득세 결산 내용을 정리했습니다."}</p>
-                    </section>
-
-                    <section>
-                      <h3>5. 사업/임대 소득률 비교</h3>
+                      <h3>4. 사업/임대 소득률 비교</h3>
                       {incomeReportBusinessRows.length === 0 ? (
                         <p>사업/임대소득 업종별 자료가 확인되지 않았습니다.</p>
                       ) : (
@@ -4350,13 +4345,13 @@ function App() {
                     </section>
 
                     <section>
-                      <h3>6. 마무리 안내</h3>
+                      <h3>5. 마무리 안내</h3>
                       <p>{currentIncomeReportNotes.closing || "신고서 기준 결산 내용과 최종 납부/환급세액을 위와 같이 안내드립니다."}</p>
                     </section>
 
                     {currentIncomeReportNotes.showFee && (baseFee > 0 || currentIncomeReportNotes.bankAccount) && (
                       <section className="report-fee-section">
-                        <h3>7. 수임료 안내</h3>
+                        <h3>6. 수임료 안내</h3>
                         <div className="report-fee-layout">
                         <div className="report-fee-box">
                           <div className="report-fee-row">

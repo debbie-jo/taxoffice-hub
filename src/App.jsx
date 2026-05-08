@@ -1189,8 +1189,8 @@ function parseIncomeTaxReportFromPdfText(text) {
     taxRate: compactText.match(/세율([0-9.]+%)/)?.[1] || "",
     calculatedTax: extractNumberAfter(compactText, [/산출세액(-?\d{1,3}(?:,\d{3})*)/]),
     taxCredit: (() => {
-      const reduction = toNumber(compactText.match(/세액감면(\d{1,3}(?:,\d{3})*)/)?.[1] || "0");
-      const credit = toNumber(compactText.match(/세액공제(\d{1,3}(?:,\d{3})*)/)?.[1] || "0");
+      const reduction = toNumber(compactText.match(/세액감면(\d{1,3}(?:,\d{3})+)/)?.[1] || "0");
+      const credit = toNumber(compactText.match(/세액공제(\d{1,3}(?:,\d{3})+)/)?.[1] || "0");
       const total = reduction + credit;
       return total > 0 ? formatSignedNumberWithCommas(String(total)) : "";
     })(),
@@ -4273,7 +4273,7 @@ function App() {
                         </div>
                         <div>
                           <dt>그 외 종합소득</dt>
-                          <dd>{valueOrDash(Math.max(0, toNumber(incomeReportUpload.totalIncome) - toNumber(incomeReportUpload.businessIncomeTotal)))}원</dd>
+                          <dd>{valueOrDash(Math.max(0, toNumber(incomeReportUpload.totalIncome) - Math.max(0, toNumber(incomeReportUpload.businessIncomeTotal))))}원</dd>
                         </div>
                       </dl>
                     </section>
@@ -4355,7 +4355,7 @@ function App() {
                     </section>
 
                     {currentIncomeReportNotes.showFee && baseFee > 0 && (() => {
-                      const displayBankAccount = currentIncomeReportNotes.bankAccount ?? "기업은행 038-137878-01-027";
+                      const displayBankAccount = currentIncomeReportNotes.bankAccount || "기업은행 038-137878-01-027";
                       return (
                       <section className="report-fee-section">
                         <h3>6. 수임료 안내</h3>

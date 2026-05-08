@@ -4386,20 +4386,20 @@ function App() {
                           </div>
                         </dl>
                         <p className="report-fee-bank">입금 계좌: <strong>{displayBankAccount}</strong></p>
-                        <table className="report-fee-schedule">
+                        <table className="report-fee-schedule" style={{tableLayout:"fixed",width:"100%"}}>
                           <colgroup>
                             <col style={{width:"17%"}} />
-                            <col style={{width:"40%"}} />
+                            <col style={{width:"39%"}} />
                             <col style={{width:"7%"}} />
-                            <col style={{width:"36%"}} />
+                            <col style={{width:"37%"}} />
                           </colgroup>
                           <caption>세무사 보수표 별표2 · 조정수수료</caption>
                           <thead>
                             <tr>
-                              <th>연매출액</th>
-                              <th>계산식</th>
-                              <th>해당</th>
-                              <th>비고사항</th>
+                              <th style={{width:"17%"}}>연매출액</th>
+                              <th style={{width:"39%"}}>계산식</th>
+                              <th style={{width:"7%"}}>해당</th>
+                              <th style={{width:"37%"}}>비고사항</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -4417,10 +4417,10 @@ function App() {
                               const current = isCurrentTier(incomeReportRevenue, range);
                               return (
                                 <tr key={range} className={current ? "fee-schedule-current" : ""}>
-                                  <td>{range}</td>
-                                  <td>{formula}</td>
-                                  <td className="fee-schedule-check">{current ? "▶" : ""}</td>
-                                  <td className="fee-schedule-note">{note}</td>
+                                  <td style={{overflow:"hidden",wordBreak:"keep-all"}}>{range}</td>
+                                  <td style={{overflow:"hidden",wordBreak:"keep-all"}}>{formula}</td>
+                                  <td className="fee-schedule-check" style={{textAlign:"center"}}>{current ? "▶" : ""}</td>
+                                  <td className="fee-schedule-note" style={{overflow:"hidden",wordBreak:"break-all",fontSize:"0.85em"}}>{note}</td>
                                 </tr>
                               );
                             })}

@@ -441,7 +441,7 @@ function rowsToObjects(rows) {
 
   const headers = cleanRows[headerIndex].map((header, index) => header || `열${index + 1}`);
   return cleanRows.slice(headerIndex + 1).map((row) =>
-    headers.reduce((item, header, index) => ({ ...item, [header]: row[index] || "" }), {}),
+    headers.reduce((item, header, index) => ({ ...item, [header]: row[index] || "", [`__col${index}`]: row[index] || "" }), {}),
   );
 }
 
@@ -1111,21 +1111,26 @@ function normalizeExpenseRateRow(row) {
   const code = onlyDigits(getCsvValue(row, ["업종코드", "업 종 코 드", "코드", "업종 코드", "업종"])).slice(0, 6);
   if (!code || code.length !== 6) return null;
 
-  const simpleRate = parseRateValue(getCsvValue(row, [
-    "단순경비율(일반율)",
-    "단순경비율",
-    "단 순 경 비 율",
-    "기본율",
-    "단순 기본율",
-  ]));
-  const standardRate = parseRateValue(getCsvValue(row, [
-    "기준경비율(일반율)",
-    "기준경비율",
-    "기 준 경 비 율",
-    "기준율",
-    "경비율",
-  ]));
-  const expenseRate = standardRate || simpleRate;
+  function scanColumn(predicate) {
+    const entry = Object.entries(row).find(([key, val]) => {
+      if (key.startsWith("__col")) return false;
+      const norm = normalizeHeaderName(key);
+      return norm && predicate(norm) && parseRateValue(val) > 0;
+    });
+    return entry ? parseRateValue(entry[1]) : 0;
+  }
+
+  // 단순경비율(일반) — 헤더에 "단순"+"일반" 포함, 없으면 H열(col7) 폴백
+  const simpleRate =
+    scanColumn((h) => h.includes("단순") && h.includes("일반")) ||
+    scanColumn((h) => h.includes("단순경비율") || h.includes("단순율")) ||
+    parseRateValue(row["__col7"]);
+
+  // 기준경비율(일반) — "기준"+"일반" 포함이되 "단순" 제외
+  const standardRate =
+    scanColumn((h) => h.includes("기준") && h.includes("일반") && !h.includes("단순")) ||
+    scanColumn((h) => h.includes("기준경비율") && !h.includes("단순"));
+
   const industryName = getCsvValue(row, ["세분류", "업종명", "업 종 명", "세세분류", "업태명", "종목명"]);
 
   return {

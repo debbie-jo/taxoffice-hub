@@ -1474,7 +1474,7 @@ tbody tr:hover td:last-child {
 @media print {
   @page {
     size: A4;
-    margin: 0;
+    margin: 10mm 12mm;
   }
 
   * {
@@ -1485,11 +1485,8 @@ tbody tr:hover td:last-child {
   html,
   body {
     background: #ffffff;
-    width: 210mm;
-    min-height: 297mm;
     margin: 0;
-    box-sizing: border-box;
-    padding: 8mm;
+    padding: 0;
   }
 
   .sidebar,
@@ -1548,79 +1545,79 @@ tbody tr:hover td:last-child {
   .report-preview {
     width: 100%;
     color: #111827;
-    font-size: 10.5px;
-    line-height: 1.32;
+    font-size: 9px;
+    line-height: 1.3;
   }
 
   .report-preview header {
-    margin: 0 0 10px;
+    margin: 0 0 6px;
     border-bottom: 0;
-    border-radius: 7px 7px 0 0;
+    border-radius: 5px 5px 0 0;
     background: #11564e !important;
     color: #ffffff;
-    padding: 18px 20px 20px;
+    padding: 10px 14px 12px;
   }
 
   .report-preview header span {
     color: #d5f0ea;
-    font-size: 10.5px;
+    font-size: 9px;
   }
 
   .report-preview header h2 {
-    margin: 4px 0 0;
+    margin: 3px 0 0;
     color: #ffffff;
-    font-size: 22px;
+    font-size: 17px;
   }
 
   .report-preview header p {
-    margin-top: 5px;
+    margin-top: 3px;
     color: #eefaf7;
-    font-size: 12px;
+    font-size: 10px;
   }
 
   .report-preview section {
     break-inside: avoid;
     border-bottom: 1px solid #cbd5e1;
-    padding: 8px 0;
+    padding: 5px 0;
   }
 
   .report-preview h3 {
-    margin-bottom: 5px;
-    font-size: 12px;
+    margin-bottom: 4px;
+    font-size: 10px;
   }
 
   .report-preview p {
-    margin-top: 4px;
-    font-size: 10px;
-    line-height: 1.38;
+    margin-top: 3px;
+    font-size: 8.5px;
+    line-height: 1.35;
   }
 
   .report-preview dl {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
   }
 
   .report-preview dl div {
-    min-height: 27px;
+    min-height: 22px;
     border: 1px solid #d7e0e5;
-    border-radius: 6px;
+    border-radius: 4px;
     background: #f8fbfa;
-    padding: 5px 8px;
+    padding: 3px 6px;
   }
 
   .report-preview dt,
   .report-preview dd {
-    font-size: 10px;
+    font-size: 8.5px;
   }
 
   .report-mini-table {
     min-width: 0;
-    font-size: 8.7px;
+    font-size: 8px;
   }
 
   .report-mini-table th,
   .report-mini-table td {
-    padding: 3.5px 4px;
+    padding: 2.5px 3px;
   }
 }
 

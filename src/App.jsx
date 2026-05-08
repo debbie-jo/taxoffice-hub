@@ -1191,6 +1191,20 @@ function parseIncomeTaxReportFromPdfText(text) {
 }
 
 // 세무사 보수표 별표2 조정수수료 자동계산
+function isCurrentTier(revenue, range) {
+  const r = Number(revenue) || 0;
+  if (range === "1억 미만") return r > 0 && r < 100_000_000;
+  if (range === "1억 ~ 3억") return r >= 100_000_000 && r < 300_000_000;
+  if (range === "3억 ~ 5억") return r >= 300_000_000 && r < 500_000_000;
+  if (range === "5억 ~ 10억") return r >= 500_000_000 && r < 1_000_000_000;
+  if (range === "10억 ~ 30억") return r >= 1_000_000_000 && r < 3_000_000_000;
+  if (range === "30억 ~ 50억") return r >= 3_000_000_000 && r < 5_000_000_000;
+  if (range === "50억 ~ 100억") return r >= 5_000_000_000 && r < 10_000_000_000;
+  if (range === "100억 ~ 500억") return r >= 10_000_000_000 && r < 50_000_000_000;
+  if (range === "500억 이상") return r >= 50_000_000_000;
+  return false;
+}
+
 function calculateAdjustmentFee(revenue) {
   const r = Number(revenue) || 0;
   if (r <= 0) return 0;
@@ -4198,6 +4212,35 @@ function App() {
                           placeholder="예: 국민은행 000000-00-000000"
                         />
                       </label>
+                      <details style={{ marginTop: 4 }}>
+                        <summary style={{ fontSize: 12, color: "#7a9590", cursor: "pointer", userSelect: "none" }}>세무사 보수표 별표2 조정수수료 보기</summary>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, marginTop: 6 }}>
+                          <thead>
+                            <tr style={{ background: "#e8f5f2" }}>
+                              <th style={{ padding: "5px 8px", border: "1px solid #c8e6e0", textAlign: "center" }}>연매출액</th>
+                              <th style={{ padding: "5px 8px", border: "1px solid #c8e6e0", textAlign: "center" }}>조정수수료 계산식</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              ["1억 미만", "400,000원"],
+                              ["1억 ~ 3억", "400,000 + 초과액 × 0.20%"],
+                              ["3억 ~ 5억", "800,000 + 초과액 × 0.10%"],
+                              ["5억 ~ 10억", "1,000,000 + 초과액 × 0.05%"],
+                              ["10억 ~ 30억", "1,250,000 + 초과액 × 0.04%"],
+                              ["30억 ~ 50억", "2,050,000 + 초과액 × 0.03%"],
+                              ["50억 ~ 100억", "2,650,000 + 초과액 × 0.02%"],
+                              ["100억 ~ 500억", "3,650,000 + 초과액 × 0.01%"],
+                              ["500억 이상", "7,650,000 + 초과액 × 0.005%"],
+                            ].map(([range, formula]) => (
+                              <tr key={range} style={{ background: incomeReportRevenue > 0 && isCurrentTier(incomeReportRevenue, range) ? "#f0faf6" : "transparent" }}>
+                                <td style={{ padding: "4px 8px", border: "1px solid #ddeee9", fontWeight: isCurrentTier(incomeReportRevenue, range) ? 700 : 400, color: isCurrentTier(incomeReportRevenue, range) ? "#0f4c45" : "inherit" }}>{range}</td>
+                                <td style={{ padding: "4px 8px", border: "1px solid #ddeee9", fontWeight: isCurrentTier(incomeReportRevenue, range) ? 700 : 400, color: isCurrentTier(incomeReportRevenue, range) ? "#0f4c45" : "inherit" }}>{formula}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </details>
                     </div>
                   </div>
 

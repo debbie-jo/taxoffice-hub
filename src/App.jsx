@@ -4152,7 +4152,7 @@ function App() {
                           <dt>농특세</dt>
                           <dd>{valueOrDash(toNumber(editableRuralTax))}원</dd>
                         </div>
-                        <div>
+                        <div className="report-tax-total">
                           <dt>납부/환급세액</dt>
                           <dd>{valueOrDash(incomeReportTaxTotal)}원</dd>
                         </div>

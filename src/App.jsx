@@ -1181,6 +1181,7 @@ function parseIncomeTaxReportFromPdfText(text) {
     prepaidTax: extractNumberAfter(compactText, [/기납부세액(-?\d{1,3}(?:,\d{3})*)/]),
     payableTax: extractNumberAfter(compactText, [/납부\(환급\)할총세액\(-\)(-?\d{1,3}(?:,\d{3})*)/]),
     dueTax: extractNumberAfter(compactText, [/신고기한내납부할세액\([^)]+\)(-?\d{1,3}(?:,\d{3})*)/]),
+    ruralTax: extractNumberAfter(compactText, [/농어촌특별세(-?\d{1,3}(?:,\d{3})*)/, /농특세(-?\d{1,3}(?:,\d{3})*)/]),
   };
 }
 
@@ -2425,7 +2426,7 @@ function App() {
   };
 
   const editableLocalIncomeTax = currentIncomeReportNotes.localIncomeTax || incomeReportDetails.local_income_tax || "";
-  const editableRuralTax = currentIncomeReportNotes.ruralTax || incomeReportDetails.rural_tax || "";
+  const editableRuralTax = currentIncomeReportNotes.ruralTax || incomeReportUpload.ruralTax || incomeReportDetails.rural_tax || "";
   const incomeReportTaxTotal =
     toNumber(incomeReportUpload.dueTax || incomeReportDetails.global_income_tax) +
     toNumber(editableLocalIncomeTax) +
@@ -2458,12 +2459,22 @@ function App() {
     const officeAverageRate = getOfficeIndustryAverageRate(row.code);
     const referenceRate = officeAverageRate || rateInfo?.referenceIncomeRate || 0;
 
+    const simpleRate = rateInfo?.simpleRate || 0;
+    const referenceSource = officeAverageRate
+      ? "사무실 평균"
+      : rateInfo && simpleRate
+      ? `100 - ${simpleRate}%(단순경비율(일반))`
+      : rateInfo
+      ? "국세청 기준율"
+      : "";
+
     return {
       ...row,
       industryName: rateInfo?.industryName || "",
       incomeRate,
       referenceRate,
-      referenceSource: officeAverageRate ? "사무실 평균" : rateInfo ? "국세청 기준율" : "",
+      simpleRate,
+      referenceSource,
       gap: referenceRate ? incomeRate - referenceRate : 0,
     };
   });
@@ -4174,7 +4185,7 @@ function App() {
                                   <td>{valueOrDash(row.revenue)}</td>
                                   <td>{valueOrDash(row.income)}</td>
                                   <td>{formatRate(row.incomeRate)}</td>
-                                  <td>{row.referenceRate ? `${formatRate(row.referenceRate)} ${row.referenceSource ? `(${row.referenceSource})` : ""}` : "-"}</td>
+                                  <td>{row.referenceRate ? (row.simpleRate ? `100 - ${row.simpleRate}%(단순경비율(일반)) = ${formatRate(row.referenceRate)}` : `${formatRate(row.referenceRate)} ${row.referenceSource ? `(${row.referenceSource})` : ""}`) : "-"}</td>
                                   <td>{row.referenceRate ? `${row.gap > 0 ? "+" : ""}${row.gap.toFixed(1)}%p` : "-"}</td>
                                 </tr>
                               ))}

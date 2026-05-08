@@ -1244,75 +1244,65 @@ tbody tr:hover td:last-child {
   font-weight: 600;
 }
 
-/* 보수표 */
-.report-fee-schedule {
+/* 보수표 - flex grid */
+.fee-grid {
   width: 100%;
-  border-collapse: collapse;
   font-size: 11px;
-  margin-top: 0;
-  table-layout: fixed;
-}
-
-.report-fee-schedule th:nth-child(1),
-.report-fee-schedule td:nth-child(1) { width: 22%; }
-
-.report-fee-schedule th:nth-child(2),
-.report-fee-schedule td:nth-child(2) { width: 43%; }
-
-.report-fee-schedule th:nth-child(3),
-.report-fee-schedule td:nth-child(3) { width: 35%; }
-
-.report-fee-schedule caption {
-  text-align: left;
-  font-size: 10px;
-  color: #7a9590;
-  font-weight: 600;
-  margin-bottom: 4px;
-  padding-bottom: 4px;
-}
-
-.report-fee-schedule th {
-  background: #e8f5f2;
-  color: #0f4c45;
-  font-weight: 700;
-  padding: 5px 8px;
   border: 1px solid #c8e6e0;
-  text-align: center;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
-.report-fee-schedule td {
-  padding: 4px 8px;
-  border: 1px solid #ddeee9;
-  color: #475569;
+.fee-grid-header,
+.fee-grid-row {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.report-fee-schedule td:nth-child(3) {
-  text-align: center;
-  color: #0f4c45;
+.fee-grid-header {
+  background: #e8f5f2;
   font-weight: 700;
+  font-size: 11px;
+  color: #0f4c45;
+  border-bottom: 1px solid #c8e6e0;
 }
 
-.report-fee-schedule td:nth-child(4) {
-  font-size: 10px;
-  color: #64748b;
-  word-wrap: break-word;
+.fee-grid-header span,
+.fee-grid-row span {
+  padding: 5px 8px;
+  box-sizing: border-box;
+  word-break: keep-all;
   overflow-wrap: break-word;
 }
 
-.fee-schedule-current td {
+.fee-grid-header span:nth-child(1),
+.fee-grid-row span:nth-child(1) { flex: 0 0 22%; border-right: 1px solid #ddeee9; }
+
+.fee-grid-header span:nth-child(2),
+.fee-grid-row span:nth-child(2) { flex: 0 0 43%; border-right: 1px solid #ddeee9; }
+
+.fee-grid-header span:nth-child(3),
+.fee-grid-row span:nth-child(3) { flex: 0 0 35%; color: #64748b; font-size: 10px; }
+
+.fee-grid-row {
+  border-bottom: 1px solid #ddeee9;
+  color: #475569;
+  font-size: 11px;
+}
+
+.fee-grid-row:last-child {
+  border-bottom: 0;
+}
+
+.fee-grid-current {
   background: #f0faf6;
-  color: #0f4c45 !important;
   font-weight: 700;
+  color: #0f4c45 !important;
 }
 
-.fee-schedule-check {
-  text-align: center;
-  width: 36px;
-}
-
-.fee-schedule-note {
-  font-size: 10px;
-  color: #64748b;
+.fee-grid-current span {
+  color: #0f4c45 !important;
 }
 
 /* 소득률 비교 테이블 */
@@ -1890,41 +1880,24 @@ tbody tr:hover td:last-child {
     margin: 0 0 5px;
   }
 
-  /* ── 보수표 (4열 고정 너비) ── */
-  .report-fee-schedule {
+  /* ── 보수표 (flex grid) ── */
+  .fee-grid {
+    font-size: 8px;
+  }
+
+  .fee-grid-header {
+    font-size: 8px;
+  }
+
+  .fee-grid-header span,
+  .fee-grid-row span {
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .fee-grid-header span:nth-child(3),
+  .fee-grid-row span:nth-child(3) {
     font-size: 7.5px;
-    margin-top: 0;
-    width: 100%;
-    table-layout: fixed;
-  }
-
-  .report-fee-schedule th:nth-child(1),
-  .report-fee-schedule td:nth-child(1) { width: 22%; }
-
-  .report-fee-schedule th:nth-child(2),
-  .report-fee-schedule td:nth-child(2) { width: 43%; }
-
-  .report-fee-schedule th:nth-child(3),
-  .report-fee-schedule td:nth-child(3) { width: 35%; }
-
-  .report-fee-schedule caption {
-    font-size: 7.5px;
-    margin-bottom: 2px;
-  }
-
-  .report-fee-schedule th {
-    padding: 3px 5px;
-    font-size: 7.5px;
-  }
-
-  .report-fee-schedule td {
-    padding: 1.5px 5px;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-
-  .fee-schedule-note {
-    font-size: 7px;
   }
 }
 

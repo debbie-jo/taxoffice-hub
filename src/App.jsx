@@ -4386,43 +4386,33 @@ function App() {
                           </div>
                         </dl>
                         <p className="report-fee-bank">입금 계좌: <strong>{displayBankAccount}</strong></p>
-                        <table className="report-fee-schedule" style={{tableLayout:"fixed",width:"100%"}}>
-                          <colgroup>
-                            <col style={{width:"22%"}} />
-                            <col style={{width:"43%"}} />
-                            <col style={{width:"35%"}} />
-                          </colgroup>
-                          <caption>세무사 보수표 별표2 · 조정수수료</caption>
-                          <thead>
-                            <tr>
-                              <th style={{width:"22%"}}>연매출액</th>
-                              <th style={{width:"43%"}}>계산식</th>
-                              <th style={{width:"35%"}}>비고사항</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[
-                              ["1억 미만",    "400,000원",                    "원가계산 시 20% 가산"],
-                              ["1억 ~ 3억",   "400,000 + 초과액 × 0.20%",    ""],
-                              ["3억 ~ 5억",   "800,000 + 초과액 × 0.10%",    "결산 함께 수행 시 10% 가산"],
-                              ["5억 ~ 10억",  "1,000,000 + 초과액 × 0.05%",  "결산 함께 수행 시 10% 가산"],
-                              ["10억 ~ 30억", "1,250,000 + 초과액 × 0.04%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
-                              ["30억 ~ 50억", "2,050,000 + 초과액 × 0.03%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
-                              ["50억 ~ 100억","2,650,000 + 초과액 × 0.02%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
-                              ["100억 ~ 500억","3,650,000 + 초과액 × 0.01%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
-                              ["500억 이상",  "7,650,000 + 초과액 × 0.005%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
-                            ].map(([range, formula, note]) => {
-                              const current = isCurrentTier(incomeReportRevenue, range);
-                              return (
-                                <tr key={range} className={current ? "fee-schedule-current" : ""}>
-                                  <td>{range}</td>
-                                  <td>{formula}</td>
-                                  <td className="fee-schedule-note">{note}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                        <div className="fee-grid">
+                          <div className="fee-grid-header">
+                            <span>연매출액</span>
+                            <span>계산식</span>
+                            <span>비고사항</span>
+                          </div>
+                          {[
+                            ["1억 미만",     "400,000원",                    "원가계산 시 20% 가산"],
+                            ["1억 ~ 3억",    "400,000 + 초과액 × 0.20%",    ""],
+                            ["3억 ~ 5억",    "800,000 + 초과액 × 0.10%",    "결산 함께 수행 시 10% 가산"],
+                            ["5억 ~ 10억",   "1,000,000 + 초과액 × 0.05%",  "결산 함께 수행 시 10% 가산"],
+                            ["10억 ~ 30억",  "1,250,000 + 초과액 × 0.04%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
+                            ["30억 ~ 50억",  "2,050,000 + 초과액 × 0.03%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
+                            ["50억 ~ 100억", "2,650,000 + 초과액 × 0.02%",  "특수업종(임대·숙박·병의원·학원) 30% 가산"],
+                            ["100억 ~ 500억","3,650,000 + 초과액 × 0.01%",  "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
+                            ["500억 이상",   "7,650,000 + 초과액 × 0.005%", "복수소득·복수업종 건당 10% 가산 (금융소득 30%)"],
+                          ].map(([range, formula, note]) => {
+                            const current = isCurrentTier(incomeReportRevenue, range);
+                            return (
+                              <div key={range} className={`fee-grid-row${current ? " fee-grid-current" : ""}`}>
+                                <span>{range}</span>
+                                <span>{formula}</span>
+                                <span>{note}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </section>
                       );
                     })()}

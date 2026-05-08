@@ -2448,6 +2448,7 @@ function App() {
     surchargeNote: "",
     discount: "",
     bankAccount: "",
+    showFee: false,
   };
 
   const editableLocalIncomeTax = currentIncomeReportNotes.localIncomeTax || incomeReportDetails.local_income_tax || "";
@@ -4130,7 +4131,14 @@ function App() {
                       />
                     </label>
                     <div style={{ border: "1px solid #d0e8e4", borderRadius: 8, padding: "12px 14px", background: "#f7faf9", display: "grid", gap: 10 }}>
-                      <strong style={{ fontSize: 13, color: "#0f4c45" }}>💰 수임료</strong>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={!!currentIncomeReportNotes.showFee}
+                          onChange={(event) => changeIncomeReportNote("showFee", event.target.checked)}
+                        />
+                        <strong style={{ fontSize: 13, color: "#0f4c45" }}>💰 수임료 보고서에 포함</strong>
+                      </label>
                       <div className="report-inline-fields">
                         <label>
                           <span>조정료 <span style={{ color: "#7a9590", fontWeight: 400 }}>(자동: {formatSignedNumberWithCommas(autoFee)}원)</span></span>
@@ -4325,7 +4333,7 @@ function App() {
                       <p>{currentIncomeReportNotes.closing || "신고서 기준 결산 내용과 최종 납부/환급세액을 위와 같이 안내드립니다."}</p>
                     </section>
 
-                    {(baseFee > 0 || currentIncomeReportNotes.bankAccount) && (
+                    {currentIncomeReportNotes.showFee && (baseFee > 0 || currentIncomeReportNotes.bankAccount) && (
                       <section className="report-fee-section">
                         <h3>7. 수임료 안내</h3>
                         <div className="report-fee-box">

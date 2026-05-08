@@ -2447,7 +2447,7 @@ function App() {
     surcharge: "",
     surchargeNote: "",
     discount: "",
-    bankAccount: "",
+    bankAccount: "기업은행 038-137878-01-027",
     showFee: false,
   };
 

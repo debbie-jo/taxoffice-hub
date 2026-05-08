@@ -4387,6 +4387,12 @@ function App() {
                         </dl>
                         <p className="report-fee-bank">입금 계좌: <strong>{displayBankAccount}</strong></p>
                         <table className="report-fee-schedule">
+                          <colgroup>
+                            <col style={{width:"17%"}} />
+                            <col style={{width:"40%"}} />
+                            <col style={{width:"7%"}} />
+                            <col style={{width:"36%"}} />
+                          </colgroup>
                           <caption>세무사 보수표 별표2 · 조정수수료</caption>
                           <thead>
                             <tr>

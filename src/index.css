@@ -1298,6 +1298,8 @@ tbody tr:hover td:last-child {
 .report-fee-schedule td:nth-child(4) {
   font-size: 10px;
   color: #64748b;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .fee-schedule-current td {

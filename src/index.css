@@ -1188,34 +1188,60 @@ tbody tr:hover td:last-child {
   background: #f0f9f7;
 }
 
-.report-fee-box {
+/* 수임료 금액 가로 DL */
+.report-fee-summary {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 8px;
+  margin-bottom: 10px;
 }
 
-.report-fee-row {
+.report-fee-summary > div {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 4px;
   background: #ffffff;
   border: 1px solid #d0e8e4;
   border-radius: 8px;
-  padding: 9px 12px;
-  white-space: nowrap;
-  gap: 8px;
+  padding: 10px 12px;
 }
 
-.report-fee-row span {
-  font-size: 12px;
+.report-fee-summary dt {
+  font-size: 11px;
   color: #7a9590;
   font-weight: 500;
 }
 
-.report-fee-row strong {
-  font-size: 14px;
-  font-weight: 600;
+.report-fee-summary dd {
+  font-size: 15px;
+  font-weight: 700;
   color: #0f4c45;
-  white-space: nowrap;
+}
+
+.report-fee-total {
+  background: #0f4c45 !important;
+  border-color: #0f4c45 !important;
+}
+
+.report-fee-total dt {
+  color: #a8dbd5 !important;
+}
+
+.report-fee-total dd {
+  color: #ffffff !important;
+  font-size: 19px !important;
+  font-weight: 800 !important;
+}
+
+.report-fee-bank {
+  font-size: 11px;
+  color: #475569;
+  margin: 0 0 10px;
+}
+
+.report-fee-bank strong {
+  color: #0f4c45;
+  font-weight: 600;
 }
 
 /* 보수표 */
@@ -1223,7 +1249,7 @@ tbody tr:hover td:last-child {
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .report-fee-schedule caption {
@@ -1260,21 +1286,6 @@ tbody tr:hover td:last-child {
   background: #f0faf6;
   color: #0f4c45 !important;
   font-weight: 700;
-}
-
-.report-fee-total {
-  background: #0f4c45 !important;
-  border-color: #0f4c45 !important;
-}
-
-.report-fee-total span {
-  color: #a8dbd5 !important;
-  font-weight: 700 !important;
-}
-
-.report-fee-total strong {
-  color: #ffffff !important;
-  font-size: 18px !important;
 }
 
 /* 소득률 비교 테이블 */
@@ -1810,52 +1821,42 @@ tbody tr:hover td:last-child {
     background: #f0f9f7 !important;
   }
 
-  /* 수임료 + 보수표 가로 배치 */
   .report-fee-section > h3 {
-    margin-bottom: 5px;
+    margin-bottom: 4px;
   }
 
-  .report-fee-layout {
-    display: grid;
-    grid-template-columns: minmax(min-content, 170px) 1fr;
-    gap: 6px;
-    align-items: start;
+  .report-fee-summary {
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 3px;
+    margin-bottom: 4px;
   }
 
-  .report-fee-row {
-    padding: 2px 6px;
-    border-radius: 3px;
-    white-space: nowrap;
+  .report-fee-summary > div {
+    padding: 3px 6px;
+    border-radius: 4px;
+    gap: 1px;
   }
 
-  .report-fee-row span {
-    font-size: 7.5px;
-    font-weight: 400;
+  .report-fee-summary dt {
+    font-size: 7px;
   }
 
-  .report-fee-row strong {
-    font-size: 9px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .report-fee-total {
-    padding: 4px 7px !important;
-  }
-
-  .report-fee-total dt {
-    font-size: 8px !important;
-    font-weight: 500 !important;
+  .report-fee-summary dd {
+    font-size: 9.5px;
   }
 
   .report-fee-total dd {
-    font-size: 12px !important;
-    font-weight: 700 !important;
+    font-size: 11px !important;
+  }
+
+  .report-fee-bank {
+    font-size: 7.5px;
+    margin: 0 0 4px;
   }
 
   .report-fee-schedule {
     font-size: 7px;
-    margin-top: 0;
+    margin-top: 4px;
     width: 100%;
   }
 

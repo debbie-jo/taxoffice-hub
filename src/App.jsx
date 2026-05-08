@@ -4357,39 +4357,35 @@ function App() {
                     {currentIncomeReportNotes.showFee && (baseFee > 0 || currentIncomeReportNotes.bankAccount) && (
                       <section className="report-fee-section">
                         <h3>6. 수임료 안내</h3>
-                        <div className="report-fee-layout">
-                        <div className="report-fee-box">
-                          <div className="report-fee-row">
-                            <span>조정료</span>
-                            <strong>{formatSignedNumberWithCommas(baseFee)}원</strong>
+                        <dl className="report-fee-summary">
+                          <div>
+                            <dt>조정료</dt>
+                            <dd>{formatSignedNumberWithCommas(baseFee)}원</dd>
                           </div>
                           {surchargeAmt > 0 && (
-                            <div className="report-fee-row">
-                              <span>가산액{currentIncomeReportNotes.surchargeNote ? ` (${currentIncomeReportNotes.surchargeNote})` : ""}</span>
-                              <strong>+{formatSignedNumberWithCommas(surchargeAmt)}원</strong>
+                            <div>
+                              <dt>가산액{currentIncomeReportNotes.surchargeNote ? ` (${currentIncomeReportNotes.surchargeNote})` : ""}</dt>
+                              <dd>+{formatSignedNumberWithCommas(surchargeAmt)}원</dd>
                             </div>
                           )}
                           {discountAmt > 0 && (
-                            <div className="report-fee-row">
-                              <span>할인액</span>
-                              <strong>-{formatSignedNumberWithCommas(discountAmt)}원</strong>
+                            <div>
+                              <dt>할인액</dt>
+                              <dd>-{formatSignedNumberWithCommas(discountAmt)}원</dd>
                             </div>
                           )}
-                          <div className="report-fee-row">
-                            <span>부가세 (10%)</span>
-                            <strong>{formatSignedNumberWithCommas(feeVat)}원</strong>
+                          <div>
+                            <dt>부가세 (10%)</dt>
+                            <dd>{formatSignedNumberWithCommas(feeVat)}원</dd>
                           </div>
-                          <div className="report-fee-row report-fee-total">
-                            <span>합계 (VAT 포함)</span>
-                            <strong>{formatSignedNumberWithCommas(feeTotal)}원</strong>
+                          <div className="report-fee-total">
+                            <dt>합계 (VAT 포함)</dt>
+                            <dd>{formatSignedNumberWithCommas(feeTotal)}원</dd>
                           </div>
-                          {currentIncomeReportNotes.bankAccount && (
-                            <div className="report-fee-row">
-                              <span>입금 계좌</span>
-                              <strong>{currentIncomeReportNotes.bankAccount}</strong>
-                            </div>
-                          )}
-                        </div>
+                        </dl>
+                        {currentIncomeReportNotes.bankAccount && (
+                          <p className="report-fee-bank">입금 계좌: <strong>{currentIncomeReportNotes.bankAccount}</strong></p>
+                        )}
                         <table className="report-fee-schedule">
                           <caption>세무사 보수표 별표2 · 조정수수료</caption>
                           <thead>
@@ -4422,7 +4418,6 @@ function App() {
                             })}
                           </tbody>
                         </table>
-                        </div>
                       </section>
                     )}
                   </article>

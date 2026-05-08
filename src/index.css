@@ -1210,9 +1210,24 @@ tbody tr:hover td:last-child {
 }
 
 .report-fee-row strong {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: #0f4c45;
+}
+
+.report-fee-total {
+  background: #0f4c45 !important;
+  border-color: #0f4c45 !important;
+}
+
+.report-fee-total span {
+  color: #a8dbd5 !important;
+  font-weight: 700 !important;
+}
+
+.report-fee-total strong {
+  color: #ffffff !important;
+  font-size: 18px !important;
 }
 
 /* 소득률 비교 테이블 */

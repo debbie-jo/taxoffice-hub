@@ -1190,6 +1190,21 @@ function parseIncomeTaxReportFromPdfText(text) {
   };
 }
 
+// 세무사 보수표 별표2 조정수수료 자동계산
+function calculateAdjustmentFee(revenue) {
+  const r = Number(revenue) || 0;
+  if (r <= 0) return 0;
+  if (r < 100_000_000) return 400_000;
+  if (r < 300_000_000) return 400_000 + (r - 100_000_000) * 0.002;
+  if (r < 500_000_000) return 800_000 + (r - 300_000_000) * 0.001;
+  if (r < 1_000_000_000) return 1_000_000 + (r - 500_000_000) * 0.0005;
+  if (r < 3_000_000_000) return 1_250_000 + (r - 1_000_000_000) * 0.0004;
+  if (r < 5_000_000_000) return 2_050_000 + (r - 3_000_000_000) * 0.0003;
+  if (r < 10_000_000_000) return 2_650_000 + (r - 5_000_000_000) * 0.0002;
+  if (r < 50_000_000_000) return 3_650_000 + (r - 10_000_000_000) * 0.0001;
+  return 7_650_000 + (r - 50_000_000_000) * 0.00005;
+}
+
 function escapeCsvValue(value) {
   const text = String(value ?? "");
   return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
@@ -2429,6 +2444,9 @@ function App() {
     comparison: "",
     closing: "",
     adjustmentFee: "",
+    surcharge: "",
+    surchargeNote: "",
+    discount: "",
     bankAccount: "",
   };
 
@@ -2446,6 +2464,17 @@ function App() {
   const incomeReportRevenue = toNumber(incomeReportUpload.revenueTotal);
   const incomeReportBusinessIncome = toNumber(incomeReportUpload.businessIncomeTotal || getIncomeReportValue("totalIncome", "income_amount"));
   const incomeReportIncomeRate = incomeReportRevenue ? (incomeReportBusinessIncome / incomeReportRevenue) * 100 : 0;
+
+  // 조정료 자동계산 (보수표 별표2) — 수동 입력 시 우선
+  const autoFee = calculateAdjustmentFee(incomeReportRevenue);
+  const baseFee = currentIncomeReportNotes.adjustmentFee
+    ? toNumber(currentIncomeReportNotes.adjustmentFee)
+    : autoFee;
+  const surchargeAmt = toNumber(currentIncomeReportNotes.surcharge);
+  const discountAmt = toNumber(currentIncomeReportNotes.discount);
+  const feeBeforeVat = Math.max(0, baseFee + surchargeAmt - discountAmt);
+  const feeVat = Math.round(feeBeforeVat * 0.1);
+  const feeTotal = feeBeforeVat + feeVat;
 
   function getOfficeIndustryAverageRate(code) {
     const rates = Object.values(incomeReportSavedReports)
@@ -4074,17 +4103,58 @@ function App() {
                         placeholder="예: 신고는 완료되었으며, 환급 또는 납부 진행 상황은 별도 확인 후 안내드리겠습니다."
                       />
                     </label>
-                    <div className="report-inline-fields">
-                      <label>
-                        <span>조정료</span>
-                        <input
-                          className="amount-input"
-                          value={currentIncomeReportNotes.adjustmentFee}
-                          onChange={(event) => changeIncomeReportNote("adjustmentFee", formatSignedNumberWithCommas(event.target.value))}
-                          placeholder="0"
-                          inputMode="decimal"
-                        />
-                      </label>
+                    <div style={{ border: "1px solid #d0e8e4", borderRadius: 8, padding: "12px 14px", background: "#f7faf9", display: "grid", gap: 10 }}>
+                      <strong style={{ fontSize: 13, color: "#0f4c45" }}>💰 수임료</strong>
+                      <div className="report-inline-fields">
+                        <label>
+                          <span>조정료 <span style={{ color: "#7a9590", fontWeight: 400 }}>(자동: {formatSignedNumberWithCommas(autoFee)}원)</span></span>
+                          <input
+                            className="amount-input"
+                            value={currentIncomeReportNotes.adjustmentFee}
+                            onChange={(event) => changeIncomeReportNote("adjustmentFee", formatSignedNumberWithCommas(event.target.value))}
+                            placeholder={String(autoFee)}
+                            inputMode="decimal"
+                            style={{ width: "100%" }}
+                          />
+                        </label>
+                        <label>
+                          <span>가산액</span>
+                          <input
+                            className="amount-input"
+                            value={currentIncomeReportNotes.surcharge}
+                            onChange={(event) => changeIncomeReportNote("surcharge", formatSignedNumberWithCommas(event.target.value))}
+                            placeholder="0"
+                            inputMode="decimal"
+                            style={{ width: "100%" }}
+                          />
+                        </label>
+                      </div>
+                      <div className="report-inline-fields">
+                        <label>
+                          <span>가산 사유</span>
+                          <input
+                            style={{ width: "100%" }}
+                            value={currentIncomeReportNotes.surchargeNote}
+                            onChange={(event) => changeIncomeReportNote("surchargeNote", event.target.value)}
+                            placeholder="예: 결산 10% 가산"
+                          />
+                        </label>
+                        <label>
+                          <span>할인액</span>
+                          <input
+                            className="amount-input"
+                            value={currentIncomeReportNotes.discount}
+                            onChange={(event) => changeIncomeReportNote("discount", formatSignedNumberWithCommas(event.target.value))}
+                            placeholder="0"
+                            inputMode="decimal"
+                            style={{ width: "100%" }}
+                          />
+                        </label>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 16, fontSize: 13, color: "#475569", borderTop: "1px solid #d0e8e4", paddingTop: 8 }}>
+                        <span>부가세 {formatSignedNumberWithCommas(feeVat)}원</span>
+                        <strong style={{ color: "#0f4c45", fontSize: 15 }}>합계 {formatSignedNumberWithCommas(feeTotal)}원</strong>
+                      </div>
                       <label>
                         <span>입금 계좌번호</span>
                         <input
@@ -4229,16 +4299,34 @@ function App() {
                       <p>{currentIncomeReportNotes.closing || "신고서 기준 결산 내용과 최종 납부/환급세액을 위와 같이 안내드립니다."}</p>
                     </section>
 
-                    {(currentIncomeReportNotes.adjustmentFee || currentIncomeReportNotes.bankAccount) && (
+                    {(baseFee > 0 || currentIncomeReportNotes.bankAccount) && (
                       <section className="report-fee-section">
                         <h3>7. 수임료 안내</h3>
                         <div className="report-fee-box">
-                          {currentIncomeReportNotes.adjustmentFee && (
+                          <div className="report-fee-row">
+                            <span>조정료</span>
+                            <strong>{formatSignedNumberWithCommas(baseFee)}원</strong>
+                          </div>
+                          {surchargeAmt > 0 && (
                             <div className="report-fee-row">
-                              <span>조정료</span>
-                              <strong>{currentIncomeReportNotes.adjustmentFee}원</strong>
+                              <span>가산액{currentIncomeReportNotes.surchargeNote ? ` (${currentIncomeReportNotes.surchargeNote})` : ""}</span>
+                              <strong>+{formatSignedNumberWithCommas(surchargeAmt)}원</strong>
                             </div>
                           )}
+                          {discountAmt > 0 && (
+                            <div className="report-fee-row">
+                              <span>할인액</span>
+                              <strong>-{formatSignedNumberWithCommas(discountAmt)}원</strong>
+                            </div>
+                          )}
+                          <div className="report-fee-row">
+                            <span>부가세 (10%)</span>
+                            <strong>{formatSignedNumberWithCommas(feeVat)}원</strong>
+                          </div>
+                          <div className="report-fee-row report-fee-total">
+                            <span>합계 (VAT 포함)</span>
+                            <strong>{formatSignedNumberWithCommas(feeTotal)}원</strong>
+                          </div>
                           {currentIncomeReportNotes.bankAccount && (
                             <div className="report-fee-row">
                               <span>입금 계좌</span>

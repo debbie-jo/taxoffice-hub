@@ -4423,7 +4423,6 @@ function App() {
                       </section>
                       );
                     })()}
-                    )}
                   </article>
                 </div>
               </>

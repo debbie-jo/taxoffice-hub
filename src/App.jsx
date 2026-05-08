@@ -2467,7 +2467,7 @@ function App() {
   const incomeReportIncomeRate = incomeReportRevenue ? (incomeReportBusinessIncome / incomeReportRevenue) * 100 : 0;
 
   // 조정료 자동계산 (보수표 별표2) — 수동 입력 시 우선
-  const autoFee = calculateAdjustmentFee(incomeReportRevenue);
+  const autoFee = Math.round(calculateAdjustmentFee(incomeReportRevenue));
   const baseFee = currentIncomeReportNotes.adjustmentFee
     ? toNumber(currentIncomeReportNotes.adjustmentFee)
     : autoFee;

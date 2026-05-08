@@ -2701,6 +2701,31 @@ function App() {
     setMessage(`${client.company_name} 종소세 보고서를 저장했습니다.`);
   }
 
+  function deleteIncomeReportForClient() {
+    if (!incomeReportNoteKey || !selectedIncomeReportClient) return;
+    const client = normalizeClient(selectedIncomeReportClient);
+    const confirmed = window.confirm(`"${client.company_name}" 보고서를 삭제할까요? 되돌릴 수 없습니다.`);
+    if (!confirmed) return;
+
+    const nextSavedReports = Object.fromEntries(
+      Object.entries(incomeReportSavedReports).filter(([key]) => key !== incomeReportNoteKey),
+    );
+    const nextUploads = Object.fromEntries(
+      Object.entries(incomeReportUploads).filter(([key]) => key !== incomeReportNoteKey),
+    );
+    const nextNotes = Object.fromEntries(
+      Object.entries(incomeReportNotes).filter(([key]) => key !== incomeReportNoteKey),
+    );
+
+    setIncomeReportSavedReports(nextSavedReports);
+    setIncomeReportUploads(nextUploads);
+    setIncomeReportNotes(nextNotes);
+    persistSharedState("incomeReportSavedReports", nextSavedReports);
+    persistSharedState("incomeReportUploads", nextUploads);
+    persistSharedState("incomeReportNotes", nextNotes);
+    setMessage(`"${client.company_name}" 보고서를 삭제했습니다.`);
+  }
+
   function deleteIncomeReportsForYear() {
     const confirmed = window.confirm(`${incomeReportYear} 귀속 저장 보고서를 모두 삭제할까요? 삭제하면 되돌릴 수 없습니다.`);
     if (!confirmed) return;
@@ -4003,7 +4028,8 @@ function App() {
                 <button className="primary-button" type="button" onClick={saveIncomeReport}>보고서 저장</button>
                 <button className="secondary-button" type="button" onClick={printIncomeReportsBulk}>일괄 PDF</button>
                 <button className="secondary-button" type="button" onClick={downloadIncomeReportsCsv}>CSV 다운</button>
-                <button className="secondary-button danger-button" type="button" onClick={deleteIncomeReportsForYear}>일괄 삭제</button>
+                <button className="secondary-button danger-button" type="button" onClick={deleteIncomeReportForClient} disabled={!selectedIncomeReportClient}>선택 삭제</button>
+                <button className="secondary-button danger-button" type="button" onClick={deleteIncomeReportsForYear}>연도 전체 삭제</button>
                 <button className="secondary-button" type="button" onClick={() => window.print()}>인쇄</button>
               </div>
             </div>

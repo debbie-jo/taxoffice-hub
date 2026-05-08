@@ -1134,7 +1134,7 @@ function normalizeExpenseRateRow(row) {
     detailName: getCsvValue(row, ["세세분류", "적용기준내용"]),
     simpleRate,
     standardRate,
-    referenceIncomeRate: expenseRate ? Math.max(0, 100 - expenseRate) : 0,
+    referenceIncomeRate: simpleRate ? Math.max(0, 100 - simpleRate) : 0,
   };
 }
 
@@ -4185,7 +4185,7 @@ function App() {
                                   <td>{valueOrDash(row.revenue)}</td>
                                   <td>{valueOrDash(row.income)}</td>
                                   <td>{formatRate(row.incomeRate)}</td>
-                                  <td>{row.referenceRate ? (row.simpleRate ? `100 - ${row.simpleRate}%(단순경비율(일반)) = ${formatRate(row.referenceRate)}` : `${formatRate(row.referenceRate)} ${row.referenceSource ? `(${row.referenceSource})` : ""}`) : "-"}</td>
+                                  <td>{row.referenceRate ? formatRate(row.referenceRate) : "-"}</td>
                                   <td>{row.referenceRate ? `${row.gap > 0 ? "+" : ""}${row.gap.toFixed(1)}%p` : "-"}</td>
                                 </tr>
                               ))}

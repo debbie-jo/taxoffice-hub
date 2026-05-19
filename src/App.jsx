@@ -1114,9 +1114,12 @@ function extractAllSectionsBetween(text, startLabel, endLabel) {
   return sections;
 }
 
-function extractAllNumbersBetween(text, startLabel, endLabel) {
-  return extractAllSectionsBetween(text, startLabel, endLabel)
-    .flatMap((section) => (section.match(/-?\d{1,3}(?:,\d{3})+/g) || []).map(toNumber));
+function extractNumbersForSectionCounts(text, startLabel, endLabel, counts) {
+  const sections = extractAllSectionsBetween(text, startLabel, endLabel);
+  return counts.flatMap((count, index) => {
+    const section = sections[index] || "";
+    return (section.match(/-?\d{1,3}(?:,\d{3})+/g) || []).slice(0, count).map(toNumber);
+  });
 }
 
 function sumNumbers(values) {
@@ -1166,11 +1169,13 @@ function normalizeExpenseRateRow(row) {
 
 function parseIncomeTaxReportFromPdfText(text) {
   const compactText = text.replace(/\s+/g, "");
-  const industryCodes = extractAllSectionsBetween(compactText, "⑧주업종코드", "⑨총수입금액")
-    .flatMap((section) => section.match(/\d{6}/g) || []);
-  const revenues = extractAllNumbersBetween(compactText, "⑨총수입금액", "⑩필요경비");
-  const expenses = extractAllNumbersBetween(compactText, "⑩필요경비", "⑪소득금액");
-  const incomes = extractAllNumbersBetween(compactText, "⑪소득금액(⑨-⑩)", "⑫과세기간");
+  const industryCodeSections = extractAllSectionsBetween(compactText, "⑧주업종코드", "⑨총수입금액")
+    .map((section) => section.match(/\d{6}/g) || []);
+  const industryCodes = industryCodeSections.flat();
+  const industryCodeCounts = industryCodeSections.map((codes) => codes.length);
+  const revenues = extractNumbersForSectionCounts(compactText, "⑨총수입금액", "⑩필요경비", industryCodeCounts);
+  const expenses = extractNumbersForSectionCounts(compactText, "⑩필요경비", "⑪소득금액", industryCodeCounts);
+  const incomes = extractNumbersForSectionCounts(compactText, "⑪소득금액(⑨-⑩)", "⑫과세기간", industryCodeCounts);
   const businessRows = industryCodes.map((code, index) => ({
     code,
     revenue: revenues[index] || 0,

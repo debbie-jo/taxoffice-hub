@@ -873,6 +873,15 @@ function buildClientPayload(source, useSecondPhone = true) {
   };
 }
 
+function getClientSaveErrorMessage(error) {
+  const message = error?.message || "";
+  if (message.includes("duplicate key")) return "이미 등록된 사업자번호이거나 중복된 거래처입니다.";
+  if (message.includes("violates not-null constraint")) return "필수 저장 항목이 누락되었습니다. 업체명, 사업자번호, 대표자명을 확인해주세요.";
+  if (message.includes("invalid input value for enum")) return "선택 항목 값이 저장 형식과 맞지 않습니다. 법인/개인, 과세유형, 원천세 유형을 다시 선택해주세요.";
+  if (message.includes("row-level security")) return "Supabase 저장 권한 설정 때문에 거래처를 저장하지 못했습니다.";
+  return message || "거래처를 저장하지 못했습니다. 입력값을 확인한 뒤 다시 시도해주세요.";
+}
+
 function mapImportRow(row) {
   const agencyType =
     getCsvValue(row, ["대리유형", "agency_type"]) ||
@@ -1463,6 +1472,7 @@ function App() {
 
   async function saveClient(event) {
     event.preventDefault();
+    setMessage("");
 
     if (!form.company_name.trim()) {
       setMessage("업체명은 꼭 입력해야 합니다.");
@@ -1490,7 +1500,7 @@ function App() {
     const { error } = await request;
 
     if (error) {
-      setMessage(error.message);
+      setMessage(getClientSaveErrorMessage(error));
     } else {
       const afterClient = normalizeClient(payload);
       let historyError = null;
@@ -3024,7 +3034,7 @@ function App() {
                 <button className="icon-button" type="button" onClick={cancelEdit} aria-label="닫기">×</button>
               </div>
 
-              <form onSubmit={saveClient} className="client-form">
+              <form onSubmit={saveClient} className="client-form" noValidate>
                 <label>
                   <span>업체명</span>
                   <input name="company_name" value={form.company_name} onChange={changeForm} placeholder="예: 은비상회" />
@@ -3061,7 +3071,7 @@ function App() {
                 )}
                 <label>
                   <span>메일주소</span>
-                  <input name="email" type="email" value={form.email} onChange={changeForm} placeholder="name@example.com" />
+                  <input name="email" value={form.email} onChange={changeForm} placeholder="name@example.com" />
                 </label>
                 <label>
                   <span>공동사업자 여부</span>
@@ -3153,6 +3163,8 @@ function App() {
                   <span>비고</span>
                   <textarea name="memo" value={form.memo} onChange={changeForm} placeholder="공동사업자 변경, 이관 예정, 특이사항 등을 적어두세요." />
                 </label>
+
+                {message && <div className="notice wide-field">{message}</div>}
 
                 <div className="form-actions">
                   <button className="secondary-button" type="button" onClick={cancelEdit} disabled={saving}>취소</button>

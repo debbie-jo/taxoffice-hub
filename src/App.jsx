@@ -1127,7 +1127,9 @@ function extractNumbersForSectionCounts(text, startLabel, endLabel, counts) {
   const sections = extractAllSectionsBetween(text, startLabel, endLabel);
   return counts.flatMap((count, index) => {
     const section = sections[index] || "";
-    return (section.match(/-?\d{1,3}(?:,\d{3})+/g) || []).slice(0, count).map(toNumber);
+    const values = (section.match(/-?\d{1,3}(?:,\d{3})+/g) || []).slice(0, count + 1).map(toNumber);
+    const detailValues = stripTrailingTotalValue(values);
+    return [...detailValues, ...Array(Math.max(0, count - detailValues.length)).fill(0)].slice(0, count);
   });
 }
 
@@ -1135,14 +1137,23 @@ function sumNumbers(values) {
   return values.reduce((sum, value) => sum + value, 0);
 }
 
-function stripTrailingTotalRow(rows) {
-  if (rows.length < 3) return rows;
+function stripTrailingTotalValue(values) {
+  if (values.length < 2) return values;
 
-  const totalRow = rows.at(-1);
-  const detailRows = rows.slice(0, -1);
-  const revenueTotal = sumNumbers(detailRows.map((row) => row.revenue));
+  const total = values.at(-1);
+  const details = values.slice(0, -1);
+  return total === sumNumbers(details) ? details : values;
+}
 
-  return totalRow.revenue && totalRow.revenue === revenueTotal ? detailRows : rows;
+function mergeBusinessRowsByCode(rows) {
+  return Array.from(rows.reduce((rowsByCode, row) => {
+    const existing = rowsByCode.get(row.code) || { code: row.code, revenue: 0, expense: 0, income: 0 };
+    existing.revenue += row.revenue;
+    existing.expense += row.expense;
+    existing.income += row.income;
+    rowsByCode.set(row.code, existing);
+    return rowsByCode;
+  }, new Map()).values());
 }
 
 function parseRateValue(value) {
@@ -1195,7 +1206,7 @@ function parseIncomeTaxReportFromPdfText(text) {
   const revenues = extractNumbersForSectionCounts(compactText, "⑨총수입금액", "⑩필요경비", industryCodeCounts);
   const expenses = extractNumbersForSectionCounts(compactText, "⑩필요경비", "⑪소득금액", industryCodeCounts);
   const incomes = extractNumbersForSectionCounts(compactText, "⑪소득금액(⑨-⑩)", "⑫과세기간", industryCodeCounts);
-  const businessRows = stripTrailingTotalRow(industryCodes.map((code, index) => ({
+  const businessRows = mergeBusinessRowsByCode(industryCodes.map((code, index) => ({
     code,
     revenue: revenues[index] || 0,
     expense: expenses[index] || 0,

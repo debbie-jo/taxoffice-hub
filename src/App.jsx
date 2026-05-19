@@ -1135,6 +1135,16 @@ function sumNumbers(values) {
   return values.reduce((sum, value) => sum + value, 0);
 }
 
+function stripTrailingTotalRow(rows) {
+  if (rows.length < 3) return rows;
+
+  const totalRow = rows.at(-1);
+  const detailRows = rows.slice(0, -1);
+  const revenueTotal = sumNumbers(detailRows.map((row) => row.revenue));
+
+  return totalRow.revenue && totalRow.revenue === revenueTotal ? detailRows : rows;
+}
+
 function parseRateValue(value) {
   const number = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
   return Number.isFinite(number) ? number : 0;
@@ -1185,12 +1195,12 @@ function parseIncomeTaxReportFromPdfText(text) {
   const revenues = extractNumbersForSectionCounts(compactText, "⑨총수입금액", "⑩필요경비", industryCodeCounts);
   const expenses = extractNumbersForSectionCounts(compactText, "⑩필요경비", "⑪소득금액", industryCodeCounts);
   const incomes = extractNumbersForSectionCounts(compactText, "⑪소득금액(⑨-⑩)", "⑫과세기간", industryCodeCounts);
-  const businessRows = industryCodes.map((code, index) => ({
+  const businessRows = stripTrailingTotalRow(industryCodes.map((code, index) => ({
     code,
     revenue: revenues[index] || 0,
     expense: expenses[index] || 0,
     income: incomes[index] || 0,
-  })).filter((row) => row.revenue || row.expense || row.income);
+  })).filter((row) => row.revenue || row.expense || row.income));
   const revenueTotal = sumNumbers(businessRows.map((row) => row.revenue));
   const expenseTotal = sumNumbers(businessRows.map((row) => row.expense));
   const businessIncomeTotal = sumNumbers(businessRows.map((row) => row.income));
@@ -1202,7 +1212,7 @@ function parseIncomeTaxReportFromPdfText(text) {
   return {
     source: "pdf",
     taxpayerName,
-    industryCodes,
+    industryCodes: businessRows.map((row) => row.code),
     businessRows,
     revenueTotal: revenueTotal ? formatSignedNumberWithCommas(revenueTotal) : "",
     expenseTotal: expenseTotal ? formatSignedNumberWithCommas(expenseTotal) : "",

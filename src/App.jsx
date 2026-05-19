@@ -1182,14 +1182,6 @@ function parseIncomeTaxReportFromPdfText(text) {
     expense: expenses[index] || 0,
     income: incomes[index] || 0,
   })).filter((row) => row.revenue || row.expense || row.income);
-  const mergedBusinessRows = Array.from(businessRows.reduce((rowsByCode, row) => {
-    const existing = rowsByCode.get(row.code) || { code: row.code, revenue: 0, expense: 0, income: 0 };
-    existing.revenue += row.revenue;
-    existing.expense += row.expense;
-    existing.income += row.income;
-    rowsByCode.set(row.code, existing);
-    return rowsByCode;
-  }, new Map()).values());
   const revenueTotal = sumNumbers(businessRows.map((row) => row.revenue));
   const expenseTotal = sumNumbers(businessRows.map((row) => row.expense));
   const businessIncomeTotal = sumNumbers(businessRows.map((row) => row.income));
@@ -1201,8 +1193,8 @@ function parseIncomeTaxReportFromPdfText(text) {
   return {
     source: "pdf",
     taxpayerName,
-    industryCodes: mergedBusinessRows.map((row) => row.code),
-    businessRows: mergedBusinessRows,
+    industryCodes,
+    businessRows,
     revenueTotal: revenueTotal ? formatSignedNumberWithCommas(revenueTotal) : "",
     expenseTotal: expenseTotal ? formatSignedNumberWithCommas(expenseTotal) : "",
     businessIncomeTotal: businessIncomeTotal ? formatSignedNumberWithCommas(businessIncomeTotal) : "",
@@ -4354,8 +4346,8 @@ function App() {
                               </tr>
                             </thead>
                             <tbody>
-                              {incomeReportBusinessRows.map((row) => (
-                                <tr key={row.code}>
+                              {incomeReportBusinessRows.map((row, index) => (
+                                <tr key={`${row.code}-${index}`}>
                                   <td>{row.code}</td>
                                   <td>{row.industryName || "-"}</td>
                                   <td>{valueOrDash(row.revenue)}</td>
@@ -4719,8 +4711,8 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(report.totals?.businessRows || []).map((row) => (
-                          <tr key={`${report.id}-${row.code}`}>
+                        {(report.totals?.businessRows || []).map((row, index) => (
+                          <tr key={`${report.id}-${row.code}-${index}`}>
                             <td>{row.code}</td>
                             <td>{row.industryName || "-"}</td>
                             <td>{row.revenue || "-"}</td>

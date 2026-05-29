@@ -2427,22 +2427,12 @@ function App() {
     const item = normalizeClient(client);
     const businessNumber = onlyDigits(item.business_number);
     const residentNumber = onlyDigits(item.resident_number);
-    const companyName = normalizeHeaderName(item.company_name);
-    const ownerName = normalizeHeaderName(item.owner_name);
     const rowBusinessNumber = onlyDigits(row.business_number);
     const rowResidentNumber = onlyDigits(row.resident_number);
-    const rowCompanyName = normalizeHeaderName(row.company_name);
-
-    if (rowBusinessNumber || rowResidentNumber) {
-      return (
-        (businessNumber && rowBusinessNumber === businessNumber) ||
-        (residentNumber && rowResidentNumber === residentNumber)
-      );
-    }
 
     return (
-      (companyName && rowCompanyName && (rowCompanyName === companyName || rowCompanyName.includes(companyName) || companyName.includes(rowCompanyName))) ||
-      (ownerName && rowCompanyName && rowCompanyName === ownerName)
+      (businessNumber && rowBusinessNumber && rowBusinessNumber === businessNumber) ||
+      (residentNumber && rowResidentNumber && rowResidentNumber === residentNumber)
     );
   }
 

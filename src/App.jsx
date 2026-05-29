@@ -46,7 +46,7 @@ const paymentStatementTypes = {
     label: "사업소득(간이)",
     periodType: "month",
     amountField: "business_income",
-    aliases: ["사업소득", "사업", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액", "소득금액"],
+    aliases: ["사업소득", "사업", "총지급액", "지급총액", "지급액", "총금액", "총수입금액", "수입금액", "소득금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -54,7 +54,7 @@ const paymentStatementTypes = {
     label: "일용직 지급명세서",
     periodType: "month",
     amountField: "daily_income",
-    aliases: ["일용", "일용근로", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액"],
+    aliases: ["일용", "일용근로", "총지급액", "지급총액", "지급액", "총금액", "총수입금액", "수입금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -62,7 +62,7 @@ const paymentStatementTypes = {
     label: "근로소득(간이)",
     periodType: "half",
     amountField: "earned_income",
-    aliases: ["근로", "근로소득", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액"],
+    aliases: ["근로", "근로소득", "총지급액", "지급총액", "지급액", "총금액", "총수입금액", "수입금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -70,7 +70,7 @@ const paymentStatementTypes = {
     label: "근로",
     periodType: "year",
     amountField: "earned_income",
-    aliases: ["근로", "근로소득", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액"],
+    aliases: ["근로", "근로소득", "총지급액", "지급총액", "지급액", "총금액", "총수입금액", "수입금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -78,7 +78,7 @@ const paymentStatementTypes = {
     label: "사업",
     periodType: "year",
     amountField: "business_income",
-    aliases: ["사업", "사업소득", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액", "소득금액"],
+    aliases: ["사업", "사업소득", "총지급액", "지급총액", "지급액", "총금액", "총수입금액", "수입금액", "소득금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -148,6 +148,7 @@ const statementCompanyAliases = [
   "회사명",
   "납세자명",
   "성명",
+  "성명/상호",
 ];
 
 const statementBusinessNumberAliases = [
@@ -167,6 +168,9 @@ const statementBusinessNumberAliases = [
   "사업자번호",
   "사업자등록번호(주민등록번호)",
   "사업자(주민)등록번호",
+  "지급자(제출자)",
+  "지급자",
+  "제출자",
   "등록번호",
 ];
 
@@ -181,6 +185,7 @@ const statementResidentNumberAliases = [
   "주민번호",
   "사업자등록번호(주민등록번호)",
   "사업자(주민)등록번호",
+  "지급자(제출자)",
 ];
 
 const withholdingAmountFields = [
@@ -478,6 +483,11 @@ function rowsToObjects(rows) {
     "과세",
     "세액",
     "소득",
+    "자료명",
+    "지급자",
+    "제출자",
+    "총금액",
+    "접수번호",
     "농특세",
     "업종",
     "업태",
@@ -1026,6 +1036,29 @@ function getUploadIdentifier(row) {
     business_number: formatBusinessNumber(getCsvValue(row, statementBusinessNumberAliases)),
     resident_number: formatResidentNumber(getCsvValue(row, statementResidentNumberAliases)),
   };
+}
+
+function getStatementUploadType(row) {
+  const value = normalizeHeaderName(getCsvValue(row.raw || row, ["자료명", "서식명", "지급명세서명", "신고서종류"]));
+  if (!value) return "";
+  if (value.includes("일용")) return "daily";
+  if (value.includes("간이지급명세서") && value.includes("사업소득")) return "business_simple";
+  if (value.includes("간이지급명세서") && value.includes("근로소득")) return "earned_simple";
+  if (value.includes("사업소득")) return "business";
+  if (value.includes("근로소득")) return "earned";
+  if (value.includes("이자")) return "interest";
+  if (value.includes("배당")) return "dividend";
+  if (value.includes("기타")) return "other";
+  if (value.includes("퇴직")) return "retirement";
+  return "";
+}
+
+function getStatementUploadPeriod(row) {
+  const value = getCsvValue(row.raw || row, ["지급(귀속)연월", "지급귀속연월", "귀속연월", "지급연월", "귀속월", "귀속연도"]);
+  const text = String(value ?? "").trim();
+  const month = text.match(/^(\d{4})[-./년\s]*(\d{1,2})/);
+  if (month) return `${month[1]}-${month[2].padStart(2, "0")}`;
+  return normalizeDate(text).slice(0, 7);
 }
 
 function readLocalState(key, fallback) {
@@ -2408,8 +2441,21 @@ function App() {
     );
   }
 
+  function isSameStatementType(row) {
+    const uploadType = getStatementUploadType(row);
+    return !uploadType || uploadType === statementType;
+  }
+
+  function isSameStatementPeriod(row) {
+    const uploadPeriod = getStatementUploadPeriod(row);
+    if (!uploadPeriod) return true;
+    if (selectedStatement.periodType === "month") return uploadPeriod === statementMonth;
+    if (selectedStatement.periodType === "half") return statementSourceMonths.includes(uploadPeriod);
+    return uploadPeriod.startsWith(statementYear);
+  }
+
   function findStatementRows(client) {
-    return statementRows.filter((row) => isSameStatementClient(row, client));
+    return statementRows.filter((row) => isSameStatementClient(row, client) && isSameStatementType(row) && isSameStatementPeriod(row));
   }
 
   function getStatementRowAmount(row) {

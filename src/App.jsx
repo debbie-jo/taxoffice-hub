@@ -2433,9 +2433,14 @@ function App() {
     const rowResidentNumber = onlyDigits(row.resident_number);
     const rowCompanyName = normalizeHeaderName(row.company_name);
 
+    if (rowBusinessNumber || rowResidentNumber) {
+      return (
+        (businessNumber && rowBusinessNumber === businessNumber) ||
+        (residentNumber && rowResidentNumber === residentNumber)
+      );
+    }
+
     return (
-      (businessNumber && rowBusinessNumber === businessNumber) ||
-      (residentNumber && rowResidentNumber === residentNumber) ||
       (companyName && rowCompanyName && (rowCompanyName === companyName || rowCompanyName.includes(companyName) || companyName.includes(rowCompanyName))) ||
       (ownerName && rowCompanyName && rowCompanyName === ownerName)
     );

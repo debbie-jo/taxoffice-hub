@@ -46,7 +46,7 @@ const paymentStatementTypes = {
     label: "사업소득(간이)",
     periodType: "month",
     amountField: "business_income",
-    aliases: ["사업소득", "사업", "총지급액", "지급액"],
+    aliases: ["사업소득", "사업", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액", "소득금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -54,7 +54,7 @@ const paymentStatementTypes = {
     label: "일용직 지급명세서",
     periodType: "month",
     amountField: "daily_income",
-    aliases: ["일용", "일용근로", "총지급액", "지급액"],
+    aliases: ["일용", "일용근로", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -62,7 +62,7 @@ const paymentStatementTypes = {
     label: "근로소득(간이)",
     periodType: "half",
     amountField: "earned_income",
-    aliases: ["근로", "근로소득", "총지급액", "지급액"],
+    aliases: ["근로", "근로소득", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -70,7 +70,7 @@ const paymentStatementTypes = {
     label: "근로",
     periodType: "year",
     amountField: "earned_income",
-    aliases: ["근로", "근로소득", "총지급액", "지급액"],
+    aliases: ["근로", "근로소득", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -78,7 +78,7 @@ const paymentStatementTypes = {
     label: "사업",
     periodType: "year",
     amountField: "business_income",
-    aliases: ["사업", "사업소득", "총지급액", "지급액"],
+    aliases: ["사업", "사업소득", "총지급액", "지급총액", "지급액", "총수입금액", "수입금액", "소득금액"],
     applies: (client) => client.withholding_type !== "해당 없음",
     tasks: ["자료확인", "작성", "전자제출", "접수확인"],
   },
@@ -126,6 +126,61 @@ const sharedStateConfigs = [
   { key: "incomeReportUploads", fallback: {} },
   { key: "incomeReportSavedReports", fallback: {} },
   { key: "incomeExpenseRates", fallback: [] },
+];
+
+const statementCompanyAliases = [
+  "원천징수의무자상호",
+  "원천징수의무자 상호",
+  "원천징수의무자성명",
+  "원천징수의무자 성명",
+  "징수의무자상호",
+  "징수의무자 상호",
+  "징수의무자성명",
+  "징수의무자 성명",
+  "제출자상호",
+  "제출자 상호",
+  "제출자성명",
+  "제출자 성명",
+  "상호",
+  "상호명",
+  "상호(성명)",
+  "업체명",
+  "회사명",
+  "납세자명",
+  "성명",
+];
+
+const statementBusinessNumberAliases = [
+  "원천징수의무자사업자등록번호",
+  "원천징수의무자 사업자등록번호",
+  "원천징수의무자사업자번호",
+  "원천징수의무자 사업자번호",
+  "징수의무자사업자등록번호",
+  "징수의무자 사업자등록번호",
+  "징수의무자사업자번호",
+  "징수의무자 사업자번호",
+  "제출자사업자등록번호",
+  "제출자 사업자등록번호",
+  "제출자사업자번호",
+  "제출자 사업자번호",
+  "사업자등록번호",
+  "사업자번호",
+  "사업자등록번호(주민등록번호)",
+  "사업자(주민)등록번호",
+  "등록번호",
+];
+
+const statementResidentNumberAliases = [
+  "원천징수의무자주민등록번호",
+  "원천징수의무자 주민등록번호",
+  "징수의무자주민등록번호",
+  "징수의무자 주민등록번호",
+  "제출자주민등록번호",
+  "제출자 주민등록번호",
+  "주민등록번호",
+  "주민번호",
+  "사업자등록번호(주민등록번호)",
+  "사업자(주민)등록번호",
 ];
 
 const withholdingAmountFields = [
@@ -967,9 +1022,9 @@ function isSemiannualReviewMonth(month) {
 
 function getUploadIdentifier(row) {
   return {
-    company_name: getCsvValue(row, ["업체명", "상호", "상호명", "상호(성명)", "회사명", "성명", "납세자명"]),
-    business_number: formatBusinessNumber(getCsvValue(row, ["사업자번호", "사업자등록번호", "사업자(주민)등록번호", "등록번호"])),
-    resident_number: formatResidentNumber(getCsvValue(row, ["주민번호", "주민등록번호", "사업자(주민)등록번호"])),
+    company_name: getCsvValue(row, statementCompanyAliases),
+    business_number: formatBusinessNumber(getCsvValue(row, statementBusinessNumberAliases)),
+    resident_number: formatResidentNumber(getCsvValue(row, statementResidentNumberAliases)),
   };
 }
 
@@ -2335,37 +2390,47 @@ function App() {
     }, 0);
   }
 
-  function findStatementRow(client) {
+  function isSameStatementClient(row, client) {
     const item = normalizeClient(client);
     const businessNumber = onlyDigits(item.business_number);
     const residentNumber = onlyDigits(item.resident_number);
     const companyName = normalizeHeaderName(item.company_name);
-    return statementRows.find((row) => {
-      const rowBusinessNumber = onlyDigits(row.business_number);
-      const rowResidentNumber = onlyDigits(row.resident_number);
-      const rowCompanyName = normalizeHeaderName(row.company_name);
-      return (
-        (businessNumber && rowBusinessNumber === businessNumber) ||
-        (residentNumber && rowResidentNumber === residentNumber) ||
-        (companyName && rowCompanyName && (rowCompanyName === companyName || rowCompanyName.includes(companyName) || companyName.includes(rowCompanyName)))
-      );
-    });
+    const ownerName = normalizeHeaderName(item.owner_name);
+    const rowBusinessNumber = onlyDigits(row.business_number);
+    const rowResidentNumber = onlyDigits(row.resident_number);
+    const rowCompanyName = normalizeHeaderName(row.company_name);
+
+    return (
+      (businessNumber && rowBusinessNumber === businessNumber) ||
+      (residentNumber && rowResidentNumber === residentNumber) ||
+      (companyName && rowCompanyName && (rowCompanyName === companyName || rowCompanyName.includes(companyName) || companyName.includes(rowCompanyName))) ||
+      (ownerName && rowCompanyName && rowCompanyName === ownerName)
+    );
   }
 
-  function getStatementHomeTaxAmount(row) {
-    if (!row) return null;
+  function findStatementRows(client) {
+    return statementRows.filter((row) => isSameStatementClient(row, client));
+  }
+
+  function getStatementRowAmount(row) {
     const value = getCsvValue(row.raw, selectedStatement.aliases);
     return String(value ?? "").trim() ? toNumber(value) : null;
+  }
+
+  function getStatementHomeTaxAmount(rows) {
+    if (!rows.length) return null;
+    const amounts = rows.map(getStatementRowAmount).filter((value) => value !== null);
+    return amounts.length ? amounts.reduce((sum, value) => sum + value, 0) : null;
   }
 
   const statementReviewRows = statementClients
     .map((client) => {
       const item = normalizeClient(client);
-      const row = findStatementRow(client);
+      const rows = findStatementRows(client);
       const appAmount = getStatementExpectedAmount(client);
-      const homeTaxAmount = getStatementHomeTaxAmount(row);
+      const homeTaxAmount = getStatementHomeTaxAmount(rows);
       const diff = homeTaxAmount === null ? null : appAmount - homeTaxAmount;
-      const status = !row ? "홈택스 없음" : homeTaxAmount === null ? "금액 없음" : diff === 0 ? "일치" : "차이";
+      const status = !rows.length ? "홈택스 없음" : homeTaxAmount === null ? "금액 없음" : diff === 0 ? "일치" : "차이";
 
       return {
         id: client.id,
@@ -2374,6 +2439,7 @@ function App() {
         homeTaxAmount,
         diff,
         status,
+        homeTaxRowCount: rows.length,
       };
     })
     .filter((row) => row.appAmount > 0);

@@ -999,7 +999,46 @@ function getCurrentYear() {
 
 function getYearOptions() {
   const current = new Date().getFullYear();
-  return Array.from({ length: 8 }, (_, index) => String(current + 1 - index));
+  return Array.from({ length: 16 }, (_, index) => String(current + 2 - index));
+}
+
+function shiftMonth(value, amount) {
+  const [year, month] = String(value).split("-").map(Number);
+  if (!year || !month) return getCurrentMonth();
+  const next = new Date(year, month - 1 + amount, 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function shiftYear(value, amount) {
+  return String((Number(value) || Number(getCurrentYear())) + amount);
+}
+
+function shiftVatPeriod(year, period, amount) {
+  const currentIndex = Math.max(0, vatPeriods.indexOf(period));
+  const absoluteIndex = Number(year) * vatPeriods.length + currentIndex + amount;
+  return {
+    year: String(Math.floor(absoluteIndex / vatPeriods.length)),
+    period: vatPeriods[((absoluteIndex % vatPeriods.length) + vatPeriods.length) % vatPeriods.length],
+  };
+}
+
+function shiftHalfPeriod(year, half, amount) {
+  const currentIndex = half === "하반기" ? 1 : 0;
+  const absoluteIndex = Number(year) * 2 + currentIndex + amount;
+  return {
+    year: String(Math.floor(absoluteIndex / 2)),
+    half: absoluteIndex % 2 === 0 ? "상반기" : "하반기",
+  };
+}
+
+function PeriodNavigator({ label, onPrevious, onNext, children }) {
+  return (
+    <div className="period-navigator">
+      <button className="period-arrow" type="button" onClick={onPrevious} aria-label={`${label} 이전`}>〈</button>
+      {children}
+      <button className="period-arrow" type="button" onClick={onNext} aria-label={`${label} 다음`}>〉</button>
+    </div>
+  );
 }
 
 function getReviewPeriodKey(type, year, month, period, mode) {
@@ -3398,7 +3437,9 @@ function App() {
               </div>
               <div className="table-tools">
                 <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="업체명, 사업자번호, 대표자 검색" />
-                <input className="month-input" type="month" value={progressMonth} onChange={(event) => setProgressMonth(event.target.value)} />
+                <PeriodNavigator label="기장 기준월" onPrevious={() => setProgressMonth((value) => shiftMonth(value, -1))} onNext={() => setProgressMonth((value) => shiftMonth(value, 1))}>
+                  <input className="month-input" type="month" value={progressMonth} onChange={(event) => setProgressMonth(event.target.value)} />
+                </PeriodNavigator>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                   <option>전체</option>
                   <option>계속</option>
@@ -3531,22 +3572,38 @@ function App() {
               </div>
               <div className="table-tools">
                 <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="업체명, 사업자번호, 대표자 검색" />
-                {filingType === "withholding" ? (
-                  <input className="month-input" type="month" value={filingMonth} onChange={(event) => setFilingMonth(event.target.value)} />
-                ) : (
-                  <select className="year-input" value={filingYear} onChange={(event) => setFilingYear(event.target.value)}>
-                    {yearOptions.map((year) => (
-                      <option key={year}>{year}</option>
-                    ))}
-                  </select>
-                )}
-                {filingType === "vat" && (
-                  <select value={vatPeriod} onChange={(event) => setVatPeriod(event.target.value)}>
-                    {vatPeriods.map((period) => (
-                      <option key={period}>{period}</option>
-                    ))}
-                  </select>
-                )}
+                <PeriodNavigator
+                  label={`${selectedFiling.label} 신고기간`}
+                  onPrevious={() => {
+                    if (filingType === "withholding") return setFilingMonth((value) => shiftMonth(value, -1));
+                    if (filingType === "vat") {
+                      const next = shiftVatPeriod(filingYear, vatPeriod, -1);
+                      setFilingYear(next.year); setVatPeriod(next.period); return;
+                    }
+                    setFilingYear((value) => shiftYear(value, -1));
+                  }}
+                  onNext={() => {
+                    if (filingType === "withholding") return setFilingMonth((value) => shiftMonth(value, 1));
+                    if (filingType === "vat") {
+                      const next = shiftVatPeriod(filingYear, vatPeriod, 1);
+                      setFilingYear(next.year); setVatPeriod(next.period); return;
+                    }
+                    setFilingYear((value) => shiftYear(value, 1));
+                  }}
+                >
+                  {filingType === "withholding" ? (
+                    <input className="month-input" type="month" value={filingMonth} onChange={(event) => setFilingMonth(event.target.value)} />
+                  ) : (
+                    <select className="year-input" value={filingYear} onChange={(event) => setFilingYear(event.target.value)}>
+                      {yearOptions.map((year) => <option key={year}>{year}</option>)}
+                    </select>
+                  )}
+                  {filingType === "vat" && (
+                    <select value={vatPeriod} onChange={(event) => setVatPeriod(event.target.value)}>
+                      {vatPeriods.map((period) => <option key={period}>{period}</option>)}
+                    </select>
+                  )}
+                </PeriodNavigator>
                 {filingType === "corporate" && (
                   <select value={corporateMode} onChange={(event) => setCorporateMode(event.target.value)}>
                     <option>정기신고</option>
@@ -3918,22 +3975,38 @@ function App() {
                     <option key={key} value={key}>{item.label}</option>
                   ))}
                 </select>
-                {reviewType === "withholding" ? (
-                  <input className="month-input" type="month" value={reviewMonth} onChange={(event) => setReviewMonth(event.target.value)} />
-                ) : (
-                  <select className="year-input" value={reviewYear} onChange={(event) => setReviewYear(event.target.value)}>
-                    {yearOptions.map((year) => (
-                      <option key={year}>{year}</option>
-                    ))}
-                  </select>
-                )}
-                {reviewType === "vat" && (
-                  <select value={reviewVatPeriod} onChange={(event) => setReviewVatPeriod(event.target.value)}>
-                    {vatPeriods.map((period) => (
-                      <option key={period}>{period}</option>
-                    ))}
-                  </select>
-                )}
+                <PeriodNavigator
+                  label={`${taxFilingTypes[reviewType].label} 검토기간`}
+                  onPrevious={() => {
+                    if (reviewType === "withholding") return setReviewMonth((value) => shiftMonth(value, -1));
+                    if (reviewType === "vat") {
+                      const next = shiftVatPeriod(reviewYear, reviewVatPeriod, -1);
+                      setReviewYear(next.year); setReviewVatPeriod(next.period); return;
+                    }
+                    setReviewYear((value) => shiftYear(value, -1));
+                  }}
+                  onNext={() => {
+                    if (reviewType === "withholding") return setReviewMonth((value) => shiftMonth(value, 1));
+                    if (reviewType === "vat") {
+                      const next = shiftVatPeriod(reviewYear, reviewVatPeriod, 1);
+                      setReviewYear(next.year); setReviewVatPeriod(next.period); return;
+                    }
+                    setReviewYear((value) => shiftYear(value, 1));
+                  }}
+                >
+                  {reviewType === "withholding" ? (
+                    <input className="month-input" type="month" value={reviewMonth} onChange={(event) => setReviewMonth(event.target.value)} />
+                  ) : (
+                    <select className="year-input" value={reviewYear} onChange={(event) => setReviewYear(event.target.value)}>
+                      {yearOptions.map((year) => <option key={year}>{year}</option>)}
+                    </select>
+                  )}
+                  {reviewType === "vat" && (
+                    <select value={reviewVatPeriod} onChange={(event) => setReviewVatPeriod(event.target.value)}>
+                      {vatPeriods.map((period) => <option key={period}>{period}</option>)}
+                    </select>
+                  )}
+                </PeriodNavigator>
                 {reviewType === "corporate" && (
                   <select value={reviewCorporateMode} onChange={(event) => setReviewCorporateMode(event.target.value)}>
                     <option>정기신고</option>
@@ -4075,22 +4148,38 @@ function App() {
               </div>
               <div className="table-tools">
                 <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="업체명, 사업자번호, 대표자 검색" />
-                {selectedStatement.periodType === "month" && (
-                  <input className="month-input" type="month" value={statementMonth} onChange={(event) => setStatementMonth(event.target.value)} />
-                )}
-                {selectedStatement.periodType !== "month" && (
-                  <select className="year-input" value={statementYear} onChange={(event) => setStatementYear(event.target.value)}>
-                    {yearOptions.map((year) => (
-                      <option key={year}>{year}</option>
-                    ))}
-                  </select>
-                )}
-                {selectedStatement.periodType === "half" && (
-                  <select value={statementHalf} onChange={(event) => setStatementHalf(event.target.value)}>
-                    <option>상반기</option>
-                    <option>하반기</option>
-                  </select>
-                )}
+                <PeriodNavigator
+                  label={`${selectedStatement.label} 기간`}
+                  onPrevious={() => {
+                    if (selectedStatement.periodType === "month") return setStatementMonth((value) => shiftMonth(value, -1));
+                    if (selectedStatement.periodType === "half") {
+                      const next = shiftHalfPeriod(statementYear, statementHalf, -1);
+                      setStatementYear(next.year); setStatementHalf(next.half); return;
+                    }
+                    setStatementYear((value) => shiftYear(value, -1));
+                  }}
+                  onNext={() => {
+                    if (selectedStatement.periodType === "month") return setStatementMonth((value) => shiftMonth(value, 1));
+                    if (selectedStatement.periodType === "half") {
+                      const next = shiftHalfPeriod(statementYear, statementHalf, 1);
+                      setStatementYear(next.year); setStatementHalf(next.half); return;
+                    }
+                    setStatementYear((value) => shiftYear(value, 1));
+                  }}
+                >
+                  {selectedStatement.periodType === "month" ? (
+                    <input className="month-input" type="month" value={statementMonth} onChange={(event) => setStatementMonth(event.target.value)} />
+                  ) : (
+                    <select className="year-input" value={statementYear} onChange={(event) => setStatementYear(event.target.value)}>
+                      {yearOptions.map((year) => <option key={year}>{year}</option>)}
+                    </select>
+                  )}
+                  {selectedStatement.periodType === "half" && (
+                    <select value={statementHalf} onChange={(event) => setStatementHalf(event.target.value)}>
+                      <option>상반기</option><option>하반기</option>
+                    </select>
+                  )}
+                </PeriodNavigator>
                 <label className="secondary-button file-button">
                   홈택스 파일
                   <input type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importStatementRows} />
@@ -4186,11 +4275,11 @@ function App() {
                 <p>{incomeReportYear} 귀속 · 올해 자료 기준으로 거래처 안내용 보고서 틀을 만듭니다.</p>
               </div>
               <div className="table-tools">
-                <select className="year-input" value={incomeReportYear} onChange={(event) => setIncomeReportYear(event.target.value)}>
-                  {yearOptions.map((year) => (
-                    <option key={year}>{year}</option>
-                  ))}
-                </select>
+                <PeriodNavigator label="종소세 귀속연도" onPrevious={() => setIncomeReportYear((value) => shiftYear(value, -1))} onNext={() => setIncomeReportYear((value) => shiftYear(value, 1))}>
+                  <select className="year-input" value={incomeReportYear} onChange={(event) => setIncomeReportYear(event.target.value)}>
+                    {yearOptions.map((year) => <option key={year}>{year}</option>)}
+                  </select>
+                </PeriodNavigator>
                 <select value={incomeReportClientKey} onChange={(event) => setIncomeReportClientId(event.target.value)}>
                   {incomeReportClients.length === 0 ? (
                     <option>개인 거래처 없음</option>

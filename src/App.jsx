@@ -2,6 +2,7 @@
 import { supabase } from "./lib/supabase";
 import { Fragment, useCallback } from "react";
 import "./index.css";
+import CmsApplication from "./components/CmsApplication.jsx";
 
 const bookkeepingTasks = [
   "세금계산서",
@@ -3036,6 +3037,7 @@ function App() {
                 <button className={activeView === "clients" ? "active" : ""} type="button" onClick={() => setActiveView("clients")}>거래처 목록</button>
                 <button className={activeView === "joint" ? "active" : ""} type="button" onClick={() => setActiveView("joint")}>공동사업자 관리</button>
                 <button className={activeView === "bookkeeping" ? "active" : ""} type="button" onClick={() => setActiveView("bookkeeping")}>기장진도현황</button>
+                <button className={activeView === "cms" ? "active" : ""} type="button" onClick={() => setActiveView("cms")}>CMS 신청서 작성</button>
               </div>
             )}
           </div>
@@ -3118,13 +3120,15 @@ function App() {
         <header className="page-header">
           <div>
             <p>{sharedStorageReady ? "Supabase 공용 저장 완료" : "Supabase 연결 완료"}</p>
-            <h1>거래처 관리</h1>
+            <h1>{activeView === "cms" ? "CMS 신청서 작성" : "거래처 관리"}</h1>
           </div>
-          <div className="header-actions">
-            <button className="primary-button" type="button" onClick={openCreateForm}>신규 거래처</button>
-            <button className="secondary-button" type="button" onClick={openImportForm}>일괄 업로드</button>
-            <button className="secondary-button" onClick={loadClients} disabled={loading}>새로고침</button>
-          </div>
+          {activeView !== "cms" && (
+            <div className="header-actions">
+              <button className="primary-button" type="button" onClick={openCreateForm}>신규 거래처</button>
+              <button className="secondary-button" type="button" onClick={openImportForm}>일괄 업로드</button>
+              <button className="secondary-button" onClick={loadClients} disabled={loading}>새로고침</button>
+            </div>
+          )}
         </header>
 
         {message && <div className="notice">{message}</div>}
@@ -3304,6 +3308,8 @@ function App() {
             </section>
           </div>
         )}
+
+        {activeView === "cms" && <CmsApplication clients={clients} />}
 
         {activeView === "clients" && (
         <section className="panel list-panel">

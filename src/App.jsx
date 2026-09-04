@@ -1409,6 +1409,12 @@ function escapeCsvValue(value) {
   return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
+function escapeExcelCsvValue(value) {
+  const text = String(value ?? "");
+  const safeText = /^[=+\-@]/.test(text) ? `\t${text}` : text;
+  return escapeCsvValue(safeText);
+}
+
 function downloadTextFile(filename, content, type = "text/csv;charset=utf-8") {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -1923,6 +1929,66 @@ function App() {
     }
 
     setSaving(false);
+  }
+
+  function downloadClientsCsv() {
+    const headers = [
+      "업체명",
+      "사업자번호",
+      "주민번호",
+      "대표자명",
+      "연락처1",
+      "연락처2",
+      "메일주소",
+      "공동사업자 여부",
+      "지분율",
+      "공동대표 성함",
+      "공동대표 주민번호",
+      "공동사업자 시작일",
+      "공동사업자 종료일",
+      "법인/개인",
+      "과세유형",
+      "원천세 신고유형",
+      "대리유형",
+      "기장료",
+      "계약일",
+      "종료일",
+      "상태",
+      "비고",
+    ];
+
+    const rows = filteredClients.map((client) => {
+      const item = normalizeClient(client);
+      return [
+        item.company_name,
+        item.business_number,
+        item.resident_number,
+        item.owner_name,
+        item.phone,
+        item.phone2,
+        item.email,
+        item.is_joint_business ? "여" : "부",
+        item.joint_share_ratio,
+        item.joint_owner_name,
+        item.joint_resident_number,
+        item.joint_start_date,
+        item.joint_end_date,
+        item.entity_type,
+        item.tax_type,
+        item.withholding_type,
+        item.agency_type,
+        item.bookkeeping_fee,
+        item.contract_date,
+        item.end_date,
+        item.status,
+        item.memo,
+      ];
+    });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const csv = [headers, ...rows].map((row) => row.map(escapeExcelCsvValue).join(",")).join("\n");
+    downloadTextFile(`거래처목록_${today}.csv`, `\uFEFF${csv}`);
+    setMessage(`거래처 ${filteredClients.length}건을 엑셀용 CSV로 다운로드했습니다.`);
   }
 
   const filteredClients = useMemo(() => {
@@ -3366,6 +3432,9 @@ function App() {
                 <option>폐업</option>
                 <option>이관</option>
               </select>
+              <button className="secondary-button" type="button" onClick={downloadClientsCsv} disabled={filteredClients.length === 0}>
+                엑셀 다운로드
+              </button>
             </div>
           </div>
 

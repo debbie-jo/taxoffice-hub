@@ -20,6 +20,10 @@ function dateText(value) {
   const [y = "", m = "", d = ""] = value.split("-");
   return `${y || "    "} 년  ${m || "  "} 월  ${d || "  "} 일`;
 }
+function managementNumber(businessNumber) {
+  const digits = businessNumber.replace(/\D/g, "");
+  return digits.length === 10 ? `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}-0` : "";
+}
 function Field({ label, children, wide = false }) {
   return <label className={`edi-field${wide ? " edi-wide" : ""}`}><span>{label}</span>{children}</label>;
 }
@@ -128,7 +132,10 @@ export default function EdiApplication({ clients }) {
     return () => observer.disconnect();
   }, []);
   const options = useMemo(() => [...clients].sort((a, b) => (a.company_name || "").localeCompare(b.company_name || "", "ko")), [clients]);
-  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const set = (key, value) => setForm((prev) => ({
+    ...prev, [key]: value,
+    ...(key === "business" ? { management: managementNumber(value) } : {}),
+  }));
   function clearStamp() {
     uploadVersion.current += 1;
     setClientStamp("");
@@ -141,7 +148,9 @@ export default function EdiApplication({ clients }) {
     if (!c) { setForm(blank()); return; }
     const digits = (c.resident_number || "").replace(/\D/g, "");
     setForm({ ...blank(), clientId: id, company: c.company_name || "",
-      business: c.business_number || c.business_reg_no || "", owner: c.owner_name || c.representative || "",
+      business: c.business_number || c.business_reg_no || "",
+      management: managementNumber(c.business_number || c.business_reg_no || ""),
+      owner: c.owner_name || c.representative || "",
       address: c.address || "", phone: c.phone || "", ownerPhone: c.phone2 || c.phone || "",
       birth: digits.slice(0, 6), maskedBirth: digits.length >= 7 ? `${digits.slice(0, 6)}-${digits[6]}******` : digits.slice(0, 6),
     });

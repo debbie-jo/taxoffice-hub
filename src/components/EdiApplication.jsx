@@ -133,7 +133,7 @@ function Labor({ form: f, clientStamp, officeStamp, stampSize }) {
     <p className="edi-labor-recipient">{office.name} 보험사무대행기관 대표 귀하</p>
     <div className="edi-acceptance">
       <p>{coverage} 관련 사무 수탁을 ☑ 승낙 □ 불승낙 합니다.</p>
-      <table><tbody><tr><th>불승낙 사유</th><td></td></tr><tr><th>보험가입자 사업장관리번호</th><td>{f.management}</td></tr></tbody></table>
+      <table><tbody><tr><th>불승낙 사유</th><td></td></tr><tr><th>보험가입자 사업장관리번호</th><td></td></tr></tbody></table>
       <p className="edi-date">{dateText(f.date)}</p>
       <dl><dt>보험사무대행기관 명칭</dt><dd>{office.name}</dd><dt>소재지</dt><dd>{office.laborAddress}</dd></dl>
       <Signature label="대표자" name={office.owner} stamp={officeStamp ? stampUrl("labor") : ""} />

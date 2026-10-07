@@ -13,7 +13,7 @@ const stampUrl = (name) => `${import.meta.env.BASE_URL}edi/office-${name}.jpg`;
 const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
 const blank = () => ({
   clientId: "", company: "", business: "", management: "", corporate: "", address: "",
-  owner: "", birth: "", maskedBirth: "", phone: "", ownerPhone: "", workers: "",
+  owner: "", birth: "", maskedBirth: "", ownerPhone: "", workers: "",
   industry: "", pensionBranch: "", healthBranch: "", date: today(), startDate: today(), employment: true, accident: true,
 });
 function dateText(value) {
@@ -66,7 +66,7 @@ function Health({ form: f, clientStamp, stampSize }) {
       <tr><th>소 재 지</th><td colSpan="3">{office.address}<br /><span className="edi-phone">(전화번호 : {office.phone})</span></td></tr>
       <tr><th>대표자 성명</th><td className="edi-center">{office.owner}</td><th>대표자<br />생년월일</th><td>{office.maskedBirth}</td></tr>
       <tr><th rowSpan="4" className="edi-vertical">위임사업장</th><th>사업장관리번호<br />(단위사업장기호)</th><td>{f.management}</td><th>사업장명</th><td className="edi-center">{f.company}</td></tr>
-      <tr><th>소 재 지</th><td colSpan="3">{f.address}<br /><span className="edi-phone">(전화번호 : {f.phone})</span></td></tr>
+      <tr><th>소 재 지</th><td colSpan="3">{f.address}<br /><span className="edi-phone">(전화번호 : {office.phone})</span></td></tr>
       <tr><th>대표자 성명</th><td className="edi-center">{f.owner}</td><th>대표자<br />생년월일</th><td>{f.maskedBirth}</td></tr>
       <tr><th>사업자등록번호</th><td colSpan="3">{f.business}</td></tr>
       <tr><th colSpan="2">위임 업무범위</th><td colSpan="3"><b>공단 웹EDI 서비스 업무</b></td></tr>
@@ -85,7 +85,7 @@ function Labor({ form: f, clientStamp, officeStamp, stampSize }) {
     <h1>보험사무대행기관 사무위탁서</h1>
     <table><colgroup><col style={{ width: "16%" }} /><col style={{ width: "20%" }} /><col style={{ width: "15%" }} /><col style={{ width: "21%" }} /><col style={{ width: "28%" }} /></colgroup><tbody>
       <tr><th>사업장관리번호</th><td>{f.management}</td><th>사업장명</th><td>{f.company}</td><td>상시사용근로자수 {f.workers}</td></tr>
-      <tr><th>소재지</th><td colSpan="3">{f.address}</td><td>전화번호 {f.phone}</td></tr>
+      <tr><th>소재지</th><td colSpan="3">{f.address}</td><td>전화번호 {office.phone}</td></tr>
       <tr><th>대표자</th><td>{f.owner}</td><th>전화번호</th><td>{f.ownerPhone}</td><td>사업의 종류 {f.industry}</td></tr>
     </tbody></table>
     <h3 className="edi-labor-heading">위탁사항</h3>
@@ -151,7 +151,7 @@ export default function EdiApplication({ clients }) {
       business: c.business_number || c.business_reg_no || "",
       management: managementNumber(c.business_number || c.business_reg_no || ""),
       owner: c.owner_name || c.representative || "",
-      address: c.address || "", phone: c.phone || "", ownerPhone: c.phone2 || c.phone || "",
+      address: c.address || "", ownerPhone: c.phone2 || c.phone || "",
       birth: digits.slice(0, 6), maskedBirth: digits.length >= 7 ? `${digits.slice(0, 6)}-${digits[6]}******` : digits.slice(0, 6),
     });
   }
@@ -199,7 +199,7 @@ export default function EdiApplication({ clients }) {
         <Field label="대표자 성명"><input value={form.owner} onChange={(e) => set("owner", e.target.value)} /></Field>
         <Field label="대표자 생년월일 (국민연금)"><input value={form.birth} onChange={(e) => set("birth", e.target.value)} /></Field>
         <Field label="대표자 생년월일 (건강보험)"><input value={form.maskedBirth} onChange={(e) => set("maskedBirth", e.target.value)} /></Field>
-        <Field label="사업장 전화번호"><input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
+        <Field label="사업장 전화번호"><input type="tel" value={office.phone} readOnly /></Field>
         <Field label="대표자 전화번호"><input type="tel" value={form.ownerPhone} onChange={(e) => set("ownerPhone", e.target.value)} /></Field>
         <Field label="상시사용근로자 수"><input type="number" min="0" step="1" value={form.workers} onChange={(e) => set("workers", e.target.value)} /></Field>
         <Field label="사업의 종류"><input value={form.industry} onChange={(e) => set("industry", e.target.value)} /></Field>

@@ -24,6 +24,37 @@ function managementNumber(businessNumber) {
   const digits = businessNumber.replace(/\D/g, "");
   return digits.length === 10 ? `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}-0` : "";
 }
+function nameStamp(owner) {
+  const letters = Array.from(owner.replace(/\s/g, ""));
+  if (!letters.length) return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = 360;
+  canvas.height = 600;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+  ctx.strokeStyle = "#d21f2b";
+  ctx.fillStyle = "#d21f2b";
+  for (const [rx, ry, width] of [[146, 274, 10], [135, 263, 3]]) {
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.ellipse(180, 300, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const columns = letters.length > 4 ? 2 : 1;
+  const rows = Math.ceil(letters.length / columns);
+  const fontSize = Math.min(116, 420 / rows, 230 / columns);
+  ctx.font = `bold ${fontSize}px "Batang", "Malgun Gothic", serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  letters.forEach((letter, index) => {
+    const column = Math.floor(index / rows);
+    const row = index % rows;
+    const x = 180 + (column - (columns - 1) / 2) * 112;
+    const y = 300 + (row - (rows - 1) / 2) * (420 / Math.max(rows, 3));
+    ctx.fillText(letter, x, y, columns === 1 ? 200 : 104);
+  });
+  return canvas.toDataURL("image/png");
+}
 function Field({ label, children, wide = false }) {
   return <label className={`edi-field${wide ? " edi-wide" : ""}`}><span>{label}</span>{children}</label>;
 }
@@ -118,6 +149,7 @@ export default function EdiApplication({ clients }) {
   const [printAll, setPrintAll] = useState(false);
   const [officeStamp, setOfficeStamp] = useState(true);
   const [clientStamp, setClientStamp] = useState("");
+  const [stampMode, setStampMode] = useState("name");
   const [stampSize, setStampSize] = useState(16);
   const [error, setError] = useState("");
   const [previewScale, setPreviewScale] = useState(1);
@@ -136,9 +168,10 @@ export default function EdiApplication({ clients }) {
     ...prev, [key]: value,
     ...(key === "business" ? { management: managementNumber(value) } : {}),
   }));
-  function clearStamp() {
+  function clearStamp(nextMode = "name") {
     uploadVersion.current += 1;
     setClientStamp("");
+    setStampMode(nextMode);
     setError("");
     if (fileInput.current) fileInput.current.value = "";
   }
@@ -181,7 +214,9 @@ export default function EdiApplication({ clients }) {
       if (version === uploadVersion.current) setError("도장 이미지를 읽지 못했습니다. 다른 파일을 선택해주세요.");
     }
   }
-  const props = { form, clientStamp, officeStamp, stampSize };
+  const generatedStamp = useMemo(() => stampMode === "name" ? nameStamp(form.owner) : "", [form.owner, stampMode]);
+  const effectiveStamp = stampMode === "name" ? generatedStamp : stampMode === "upload" ? clientStamp : "";
+  const props = { form, clientStamp: effectiveStamp, officeStamp, stampSize };
   return <div className={`edi-workspace${printAll ? " edi-print-all" : ""}`}>
     <section className="panel edi-editor no-print">
       <div className="panel-header"><h2>EDI 신청서 작성</h2><div className="edi-actions">
@@ -215,8 +250,9 @@ export default function EdiApplication({ clients }) {
         <label><input type="checkbox" checked={printAll} onChange={(e) => setPrintAll(e.target.checked)} />3종 모두 인쇄</label>
       </div>
       <div className="edi-stamp-controls">
-        <Field label="위임사업장 도장"><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadStamp} /></Field>
-        {clientStamp && <><img src={clientStamp} alt="위임사업장 도장 미리보기" /><Field label={`도장 크기 ${stampSize}mm`}><input type="range" min="10" max="24" value={stampSize} onChange={(e) => setStampSize(Number(e.target.value))} /></Field><button type="button" className="secondary-button" onClick={clearStamp}>도장 제거</button></>}
+        <Field label="위임사업장 도장"><select aria-label="위임사업장 도장" value={stampMode} onChange={(e) => clearStamp(e.target.value)}><option value="name">이름 도장 (자동 생성)</option><option value="upload">실제 도장 이미지 업로드</option><option value="none">도장 없음</option></select></Field>
+        {stampMode === "upload" && <Field label="도장 이미지"><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadStamp} /></Field>}
+        {effectiveStamp && <><img src={effectiveStamp} alt="위임사업장 도장 미리보기" /><Field label={`도장 크기 ${stampSize}mm`}><input type="range" min="10" max="24" value={stampSize} onChange={(e) => setStampSize(Number(e.target.value))} /></Field><button type="button" className="secondary-button" onClick={() => clearStamp("none")}>도장 제거</button></>}
       </div>
       {error && <p role="alert" className="edi-error">{error}</p>}
       <div className="edi-office"><strong>업무대행기관</strong><span>{office.name} · {office.owner} · {office.business}</span><span>{office.address} · {office.phone}</span></div>

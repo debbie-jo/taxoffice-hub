@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { invoiceMonth, checkInvoices, kinds, sum, money, periodMonths, parseDescription, validInvoice, paidAt, matchClient, invoiceKey, splitInvoice, validateGroups, downloadCsv } from '../lib/billing';
+import { sameRevision, invoiceMonth, checkInvoices, kinds, sum, money, periodMonths, parseDescription, validInvoice, paidAt, matchClient, invoiceKey, splitInvoice, validateGroups, downloadCsv } from '../lib/billing';
 import './BillingManager.css';
 
 const KEY = 'billingLedgerV1', blank = { invoices: [], receipts: [], links: {} };
 const today = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
 const statusClass = s => s === '폐업' ? 'closed' : s === '이관' ? 'moved' : '';
+function readDraft() { try { const value = JSON.parse(sessionStorage.getItem(KEY + ':draft') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } }
 export default function BillingManager({ clients, onRegister }) {
   const [ledger, setLedger] = useState(blank), [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [revision, setRevision] = useState(null);
-  const [notice, setNotice] = useState(''), [view, setView] = useState('monthly'), [draft, setDraft] = useState([]), [page, setPage] = useState(0);
+  const [notice, setNotice] = useState(''), [view, setView] = useState('monthly'), [draft, setDraft] = useState(readDraft), [page, setPage] = useState(0);
   const now = today(), initialYear = +now.slice(0, 4) - (+now.slice(5, 7) < 7 ? 1 : 0);
   const [year, setYear] = useState(initialYear), [month, setMonth] = useState(now.slice(0, 7)), [search, setSearch] = useState(''), [status, setStatus] = useState('전체'), [onlyUnpaid, setOnlyUnpaid] = useState(false), [detail, setDetail] = useState(null);
   const [receipt, setReceipt] = useState({ invoiceId: '', date: now, amount: '' });
+  const savingLock = useRef(false);
+  useEffect(() => { try { sessionStorage.setItem(KEY + ':draft', JSON.stringify(draft)); } catch { /* Draft remains in memory when session storage is unavailable. */ } }, [draft]);
   useEffect(() => { let live = true; async function load() {
     try { const { data, error } = await supabase.from('app_state').select('value,updated_at').eq('key', KEY).maybeSingle(); if (error) throw error;
       let cached; try { cached = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { cached = null; }
@@ -19,12 +22,22 @@ export default function BillingManager({ clients, onRegister }) {
     } catch { if (live) setNotice('공용 저장소를 읽지 못했습니다. 새로고침 후 다시 시도해 주세요. 저장은 잠시 비활성화됩니다.'); }
   } load(); return () => { live = false; }; }, []);
   async function save(next) {
-    if (!ready || busy) return false; setBusy(true);
+    if (!ready || savingLock.current) return false; savingLock.current = true; setBusy(true);
     try { const { data: current, error: readError } = await supabase.from('app_state').select('updated_at').eq('key', KEY).maybeSingle(); if (readError) throw readError;
-      if ((current?.updated_at || null) !== revision) throw Error('다른 창에서 자료가 변경되었습니다. 새로고침하고 다시 적용해 주세요.');
-      const stamp = new Date().toISOString(); const { error } = await supabase.from('app_state').upsert({ key: KEY, value: next, updated_at: stamp }); if (error) throw error;
-      setLedger(next); setRevision(stamp); try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* The shared record is already saved. */ } return true;
-    } catch (e) { setNotice('저장 실패: ' + e.message); return false; } finally { setBusy(false); }
+      if (!sameRevision(current?.updated_at || null, revision)) throw Error('공용 자료가 변경되었습니다. 공용 자료 다시 불러오기를 누른 뒤 저장해 주세요. 품명 확인 내역은 유지됩니다.');
+      const stamp = new Date().toISOString();
+      const query = current ? supabase.from('app_state').update({ value: next, updated_at: stamp }).eq('key', KEY).eq('updated_at', current.updated_at) : supabase.from('app_state').insert({ key: KEY, value: next, updated_at: stamp });
+      const { data: saved, error } = await query.select('updated_at').maybeSingle(); if (error) throw error;
+      if (!saved) throw Error('저장 중 공용 자료가 변경되었습니다. 공용 자료를 다시 불러온 뒤 저장해 주세요.');
+      setLedger(next); setRevision(saved.updated_at); try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* The shared record is already saved. */ } return true;
+    } catch (e) { setNotice('저장 실패: ' + e.message); return false; } finally { savingLock.current = false; setBusy(false); }
+  }
+  async function refreshLedger() {
+    if (savingLock.current) return; savingLock.current = true; setBusy(true);
+    try { const { data, error } = await supabase.from('app_state').select('value,updated_at').eq('key', KEY).maybeSingle(); if (error) throw error;
+      setLedger(data?.value?.invoices ? { ...blank, ...data.value } : blank); setRevision(data?.updated_at || null); setReady(true);
+      setReceipt({ invoiceId: '', date: now, amount: '' }); setNotice('최신 공용 자료를 불러왔습니다. 품명 확인·수정 내역은 유지됩니다. 확인한 청구 저장을 다시 눌러 주세요.');
+    } catch (e) { setNotice('불러오기 실패: ' + e.message); } finally { savingLock.current = false; setBusy(false); }
   }
   const months = periodMonths(year), annual = view !== 'monthly', chosen = months.includes(month) ? month : months[0], cutoff = (annual ? months[11] : chosen) + '-31';
   function account(r) { const linked = ledger.links[r.business || r.name]; return clients.find(c => c.id === (linked || r.clientId)) || matchClient(r, clients); }
@@ -85,7 +98,7 @@ export default function BillingManager({ clients, onRegister }) {
   const detailGroup = groups.find(g => g.key === detail);
   return <section className="billing-manager">
     <div className="billing-heading"><div><h2>기장료 관리</h2><p>대상 월 기준 납부 현황 · 발행일 기준 매출 정산 · 실제 입금일 기준 수금</p></div><label className="billing-button">매출 엑셀 가져오기<input type="file" accept=".xlsx,.xls,.csv" onChange={readFile} hidden /></label></div>
-    {notice && <p className="billing-notice" role="status">{notice}</p>}
+    {notice && <div className="billing-notice" role="status"><p>{notice}</p><button disabled={busy} onClick={refreshLedger}>공용 자료 다시 불러오기 (품명 확인 유지)</button></div>}
     <div className="billing-toolbar"><label>정산 기간 <select value={year} onChange={e => { setYear(+e.target.value); setMonth(periodMonths(+e.target.value)[11]); }}>{Array.from({ length: 7 }, (_, i) => initialYear - 4 + i).map(y => <option key={y} value={y}>{y}.07 ~ {y + 1}.06</option>)}</select></label><label>조회 월 <select value={chosen} disabled={annual} onChange={e => setMonth(e.target.value)}>{months.map(m => <option key={m}>{m}</option>)}</select></label><span>미수 기준: {cutoff.slice(0, 7)} 말 · 이전 기간 미수는 별도</span></div>
     <div className="billing-tabs">{[['monthly', '월별 수금'], ['annual', '7월~6월 총정산'], ['arrears', '미수금 리스트'], ['import', '품명 매칭'], ['unmatched', '미등록 거래처']].map(([key, label]) => <button className={view === key ? 'selected' : ''} key={key} onClick={() => setView(key)}>{label}</button>)}</div>
     {view === 'import' ? <><p>명확한 연도·월은 자동 인식합니다. 연도가 없는 월은 발행일 이전의 가장 가까운 월로 제안합니다. 조정료·기타 수수료의 대상 월은 발행 월로 제안합니다. 귀속연도는 참고 정보이며 매출 정산은 발행일 기준입니다.</p><div className="billing-toolbar"><button disabled={busy || !ready} onClick={() => toggleAll(true)}>전체 체크 (전 페이지)</button><button disabled={busy || !ready} onClick={() => toggleAll(false)}>전체 해제</button><button disabled={busy || !ready} onClick={applyImport}>확인한 청구 저장</button></div><div className="billing-scroll"><table><thead><tr><th>거래처 / 품명</th><th>발행일</th><th>종류</th><th>대상 월 / 정산 월</th><th>귀속연도</th><th>공급가액</th><th>부가세</th><th><label><input type="checkbox" aria-label="전체 확인 체크" checked={allChecked} ref={node => { if (node) node.indeterminate = someChecked && !allChecked; }} onChange={e => toggleAll(e.target.checked)} />전체 확인</label></th><th>분리</th></tr></thead><tbody>{draft.slice(page * 40, (page + 1) * 40).map(r => <tr key={r.id}><td>{r.name}<small>{r.item}</small></td><td>{r.date}</td><td><select value={r.kind} aria-label={`${r.name} 종류`} onChange={e => edit(r.id, 'kind', e.target.value)}>{Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td><td><input type="month" value={r.target} aria-label={`${r.name} 대상 월`} onChange={e => edit(r.id, 'target', e.target.value)} /></td><td><input className="billing-number" type="number" value={r.taxYear} aria-label={`${r.name} 귀속연도`} onChange={e => edit(r.id, 'taxYear', e.target.value)} /></td><td><input className="billing-number" type="number" value={r.net} aria-label={`${r.name} 공급가액`} onChange={e => edit(r.id, 'net', +e.target.value)} /></td><td><input className="billing-number" type="number" value={r.vat} aria-label={`${r.name} 부가세`} onChange={e => edit(r.id, 'vat', +e.target.value)} /></td><td><input type="checkbox" checked={r.confirmed} aria-label={`${r.name} 확인`} onChange={e => edit(r.id, 'confirmed', e.target.checked)} /><small>{r.confirmed ? '확인됨' : r.range ? '월별 분리 필요' : '확인 필요'}</small></td><td>{r.range && <button onClick={() => { try { const split = splitInvoice(r); setDraft(prev => prev.flatMap(v => v.id === r.id ? split : [v])); } catch (e) { setNotice(e.message); } }}>월별 분리</button>}</td></tr>)}</tbody></table></div>{!draft.length && <p className="billing-empty">매출 엑셀을 선택하면 품명에서 대상 월을 읽어옵니다.</p>}<div className="billing-toolbar"><button disabled={page === 0} onClick={() => setPage(page - 1)}>이전</button><span>{page + 1} / {Math.max(1, Math.ceil(draft.length / 40))} 페이지 · {draft.length}건</span><button disabled={(page + 1) * 40 >= draft.length} onClick={() => setPage(page + 1)}>다음</button></div><p>합산 월별 분리 후 공급가액과 부가세 합계가 원본과 일치해야 저장됩니다. 음수 전표는 차감 청구로 반영합니다.</p></> : view === 'unmatched' ? <div className="billing-scroll"><table><thead><tr><th>거래처</th><th>사업자번호</th><th>처리</th></tr></thead><tbody>{[...new Map(ledger.invoices.filter(r => !account(r)).map(r => [r.business || r.name, r])).values()].map(r => <tr key={r.business || r.name}><td>{r.name}</td><td>{r.business}</td><td><select aria-label={`${r.name} 기존 거래처 연결`} value="" disabled={busy || !ready} onChange={async e => { if (e.target.value) await save({ ...ledger, links: { ...ledger.links, [r.business || r.name]: e.target.value } }); }}><option value="">기존 거래처에 연결</option>{clients.map(c => <option key={c.id} value={c.id}>{c.company_name} · {c.business_number}</option>)}</select><button onClick={() => onRegister(r)}>새 거래처 등록</button></td></tr>)}</tbody></table><p>상호가 비슷한 거래처는 직접 연결하세요. 새 거래처 등록은 기존 등록 양식에서 정보를 확인하고 저장합니다.</p></div> : <>

@@ -15,6 +15,12 @@ export function parseDescription(item, date) {
 }
 export function invoiceMonth(row, basis) { return basis === 'issued' ? row.date.slice(0, 7) : row.target; }
 export function checkInvoices(rows, checked) { return rows.map(r => ({ ...r, confirmed: Boolean(checked && validInvoice(r)) })); }
+export function sameRevision(a, b) {
+  if (a == null || b == null) return a == null && b == null;
+  const first = Date.parse(a), second = Date.parse(b);
+  const remainder = value => (String(value).match(/\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/)?.[1] || '').padEnd(3, '0').slice(3).replace(/0+$/, '');
+  return Number.isFinite(first) && Number.isFinite(second) && first === second && remainder(a) === remainder(b);
+}
 export function validInvoice(r) { return /^20\d{2}-(0[1-9]|1[0-2])$/.test(r.target) && Number.isFinite(r.net) && Number.isFinite(r.vat) && !r.range && (r.kind !== 'adjust' || /^20\d{2}$/.test(String(r.taxYear))); }
 export function paidAt(invoice, receipts, cutoff) { return sum(receipts.filter(r => r.invoiceId === invoice.id && r.date <= cutoff).map(r => r.amount)); }
 export function matchClient(row, clients) { const id = digits(row.business); return id ? clients.find(c => digits(c.business_number || c.business_reg_no || c.resident_number) === id) : undefined; }

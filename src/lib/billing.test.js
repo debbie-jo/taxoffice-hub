@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { invoiceMonth, checkInvoices, parseDescription, splitInvoice, validateGroups, paidAt, matchClient, periodMonths } from './billing.js';
+import { sameRevision, invoiceMonth, checkInvoices, parseDescription, splitInvoice, validateGroups, paidAt, matchClient, periodMonths } from './billing.js';
+
+test('database timestamps compare by time, while real changes still conflict', () => {
+  assert.equal(sameRevision('2026-10-14T03:12:45.123Z', '2026-10-14T03:12:45.123+00:00'), true);
+  assert.equal(sameRevision('2026-10-14T03:12:45.123Z', '2026-10-14T03:12:45.124+00:00'), false);
+  assert.equal(sameRevision('2026-10-14T03:12:45.123Z', '2026-10-14T03:12:45.123000+00:00'), true);
+  assert.equal(sameRevision('2026-10-14T03:12:45.123Z', '2026-10-14T03:12:45.123001+00:00'), false);
+  assert.equal(sameRevision(null, null), true); assert.equal(sameRevision(null, '2026-10-14T03:12:45Z'), false);
+  assert.equal(sameRevision('invalid', 'invalid'), false);
+});
 test('issue date and service month stay separate, with explicit year confirmation', () => {
   assert.equal(parseDescription('2026년 8월분 기장료', '2026-10-10').target, '2026-08');
   assert.equal(parseDescription('9월 기장수수료', '2026-10-10').target, '2026-09');

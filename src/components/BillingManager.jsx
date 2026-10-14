@@ -49,7 +49,8 @@ export default function BillingManager({ clients, onRegister }) {
   const basis = (view === 'annual' || view === 'adjustments') ? 'issued' : 'target';
   const rowMonth = r => invoiceMonth(r, basis);
   const periodRows = ledger.invoices.filter(r => (view !== 'adjustments' || r.kind === 'adjust') && rowMonth(r) >= months[0] && rowMonth(r) <= (annual ? months[11] : chosen));
-  const savedIds = new Set(ledger.invoices.map(r => r.id)), activeDraft = draft.filter(r => !savedIds.has(r.id));
+  const savedIds = new Set(ledger.invoices.map(r => r.id)), savedRoots = new Set(ledger.invoices.map(r => r.root));
+  const activeDraft = draft.filter(r => !savedIds.has(r.id) && !savedRoots.has(r.root));
   const readyDraft = validateGroups(activeDraft), readyIds = new Set(readyDraft.map(r => r.id));
   const reviewRows = activeDraft.filter(r => reviewFilter === 'all' || (reviewFilter === 'ready' ? readyIds.has(r.id) : !readyIds.has(r.id)));
   const allocationChecks = [...activeDraft.reduce((map, row) => {

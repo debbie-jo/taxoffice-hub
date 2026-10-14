@@ -31,7 +31,18 @@ export function reviewReason(row) {
   if (row.reviewEdited) return '수정한 내용 확인';
   return '연도 또는 오래된 대상 월 확인';
 }
-export function invoiceMonth(row, basis) { return basis === 'issued' ? row.date.slice(0, 7) : row.target; }
+export function invoiceMonth(row, basis) {
+  if (basis === 'issued') return row.date.slice(0, 7);
+  // Older mixed-fee splits were saved with the bookkeeping year inferred
+  // from the attribution year (for example 2025-03), although the service
+  // months belong to the invoice year (2026-03). Keep those saved rows
+  // visible in monthly collection without rewriting the ledger.
+  if (row.allocation && /기장/.test(row.item || '') && /조정/.test(row.item || '') && /^20\d{2}-(0[1-9]|1[0-2])$/.test(row.target || '') && row.date) {
+    const month = row.target.slice(5);
+    return `${row.date.slice(0, 4)}-${month}`;
+  }
+  return row.target;
+}
 export function checkInvoices(rows, checked) { return rows.map(r => ({ ...r, reviewEdited: true, confirmed: Boolean(checked && validInvoice(r)) })); }
 export function sameRevision(a, b) {
   if (a == null || b == null) return a == null && b == null;

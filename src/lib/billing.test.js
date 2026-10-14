@@ -44,6 +44,12 @@ test('issue date and service month stay separate, with explicit year confirmatio
   const adjustment = parseDescription('2025년 귀속 종합소득세 조정료', '2026-05-10');
   assert.equal(adjustment.taxYear, 2025); assert.equal(adjustment.target, '2026-05');
 });
+test('legacy mixed-fee split rows map to invoice-year service months in collection', () => {
+  const legacy = { allocation: true, item: '3~5월분 기장료, 2025년 귀속 법인세 조정료', date: '2026-06-10', target: '2025-03' };
+  assert.equal(invoiceMonth(legacy, 'target'), '2026-03');
+  assert.equal(invoiceMonth({ ...legacy, target: '2025-05' }, 'target'), '2026-05');
+  assert.equal(invoiceMonth(legacy, 'issued'), '2026-06');
+});
 test('safe legacy drafts are accepted, while edits and year boundaries remain for review', () => {
   const row = { date: '2026-10-10', item: '8월 기장료', kind: 'book', target: '2026-08', net: 100, vat: 10, originalNet: 100, originalVat: 10, confirmed: false };
   assert.equal(prepareReview(row).confirmed, true);

@@ -11,8 +11,10 @@ export function parseDescription(item, date) {
   const explicitYear = y ? (+y[1] < 100 ? 2000 + +y[1] : +y[1]) : null;
   const month = m ? +m[1] : null;
   const proposedYear = explicitYear ?? (+date.slice(0, 4) - (month > +date.slice(5, 7) ? 1 : 0));
-  return { kind, target: kind === 'book' && month && !range ? `${proposedYear}-${String(month).padStart(2, '0')}` : '', taxYear: /귀속/.test(item) || kind === 'adjust' ? explicitYear || '' : '', confirmed: Boolean(explicitYear && month && kind === 'book' && !range), range: range ? [+range[1], +range[2]] : null, proposedYear };
+  return { kind, target: kind === 'book' ? month && !range ? `${proposedYear}-${String(month).padStart(2, '0')}` : '' : date.slice(0, 7), taxYear: /귀속/.test(item) || kind === 'adjust' ? explicitYear || '' : '', confirmed: kind === 'book' ? Boolean(explicitYear && month && !range) : kind === 'adjust' ? Boolean(explicitYear && !range) : !range, range: range ? [+range[1], +range[2]] : null, proposedYear };
 }
+export function invoiceMonth(row, basis) { return basis === 'issued' ? row.date.slice(0, 7) : row.target; }
+export function checkInvoices(rows, checked) { return rows.map(r => ({ ...r, confirmed: Boolean(checked && validInvoice(r)) })); }
 export function validInvoice(r) { return /^20\d{2}-(0[1-9]|1[0-2])$/.test(r.target) && Number.isFinite(r.net) && Number.isFinite(r.vat) && !r.range && (r.kind !== 'adjust' || /^20\d{2}$/.test(String(r.taxYear))); }
 export function paidAt(invoice, receipts, cutoff) { return sum(receipts.filter(r => r.invoiceId === invoice.id && r.date <= cutoff).map(r => r.amount)); }
 export function matchClient(row, clients) { const id = digits(row.business); return id ? clients.find(c => digits(c.business_number || c.business_reg_no || c.resident_number) === id) : undefined; }

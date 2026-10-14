@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { splitMixedInvoice, prepareReview, reviewReason, sameRevision, invoiceMonth, checkInvoices, kinds, sum, money, periodMonths, parseDescription, validInvoice, paidAt, matchClient, invoiceKey, splitInvoice, validateGroups, downloadCsv } from '../lib/billing';
 import './BillingManager.css';
 import ExpectedFees from './ExpectedFees.jsx';
+import AdjustmentManager from './AdjustmentManager.jsx';
 
 const KEY = 'billingLedgerV1', blank = { invoices: [], receipts: [], links: {} };
 const today = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
@@ -132,6 +133,7 @@ export default function BillingManager({ clients, onRegister }) {
   const detailGroup = groups.find(g => g.key === detail);
   const allocationNotice = view === 'import' && allocationChecks.length > 0 && <div className="billing-allocation-check"><strong>분리 금액 합계 확인</strong>{allocationChecks.map(([root, rows]) => { const net = sum(rows.map(r => r.net)), vat = sum(rows.map(r => r.vat)), originalNet = rows[0].originalNet, originalVat = rows[0].originalVat, ok = net === originalNet && vat === originalVat; return <p key={root}>{rows[0].name} · 원본 {money(originalNet)}원 + 부가세 {money(originalVat)}원 → 분리 합계 {money(net)}원 + 부가세 {money(vat)}원 <b className={ok ? 'allocation-ok' : 'allocation-bad'}>{ok ? '일치' : `차이 공급가액 ${money(net - originalNet)}원 / 부가세 ${money(vat - originalVat)}원`}</b></p>; })}</div>;
   return <section className="billing-manager">
+    {view === 'adjustments' && <AdjustmentManager clients={clients} ledger={ledger} onSave={save} ready={ready} busy={busy} now={now} />}
     {allocationNotice}
     <div className="billing-heading"><div><h2>기장료 관리</h2><p>대상 월 기준 납부 현황 · 발행일 기준 매출 정산 · 실제 입금일 기준 수금</p></div><label className="billing-button">매출 엑셀 가져오기<input type="file" accept=".xlsx,.xls,.csv" onChange={readFile} hidden /></label></div>
     {notice && <div className="billing-notice" role="status"><p>{notice}</p><button disabled={busy} onClick={refreshLedger}>공용 자료 다시 불러오기 (품명 확인 유지)</button></div>}

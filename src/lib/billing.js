@@ -11,10 +11,25 @@ export function parseDescription(item, date) {
   const explicitYear = y ? (+y[1] < 100 ? 2000 + +y[1] : +y[1]) : null;
   const month = m ? +m[1] : null;
   const proposedYear = explicitYear ?? (+date.slice(0, 4) - (month > +date.slice(5, 7) ? 1 : 0));
-  return { kind, target: kind === 'book' ? month && !range ? `${proposedYear}-${String(month).padStart(2, '0')}` : '' : date.slice(0, 7), taxYear: /귀속/.test(item) || kind === 'adjust' ? explicitYear || '' : '', confirmed: kind === 'book' ? Boolean(explicitYear && month && !range) : kind === 'adjust' ? Boolean(explicitYear && !range) : !range, range: range ? [+range[1], +range[2]] : null, proposedYear };
+  const recentMonth = !explicitYear && month && month <= +date.slice(5, 7) && +date.slice(5, 7) - month <= 2;
+  return { kind, target: kind === 'book' ? month && !range ? `${proposedYear}-${String(month).padStart(2, '0')}` : '' : date.slice(0, 7), taxYear: /귀속/.test(item) || kind === 'adjust' ? explicitYear || '' : '', confirmed: kind === 'book' ? Boolean((explicitYear || recentMonth) && month && !range) : kind === 'adjust' ? Boolean(explicitYear && !range) : !range, range: range ? [+range[1], +range[2]] : null, proposedYear };
+}
+export function prepareReview(row) {
+  if (row.confirmed || row.reviewEdited || !row.item || !row.date) return row;
+  const proposal = parseDescription(row.item, row.date);
+  if (proposal.confirmed && row.target === proposal.target && row.kind === proposal.kind && row.net === row.originalNet && row.vat === row.originalVat && validInvoice(row)) return { ...row, confirmed: true };
+  return row;
+}
+export function reviewReason(row) {
+  if (row.range) return '여러 달 합산 · 월별 분리 필요';
+  if (!row.target) return '대상 월 누락';
+  if (row.kind === 'adjust' && !row.taxYear) return '조정료 귀속연도 확인';
+  if (!Number.isFinite(row.net) || !Number.isFinite(row.vat)) return '금액 확인';
+  if (row.reviewEdited) return '수정한 내용 확인';
+  return '연도 또는 오래된 대상 월 확인';
 }
 export function invoiceMonth(row, basis) { return basis === 'issued' ? row.date.slice(0, 7) : row.target; }
-export function checkInvoices(rows, checked) { return rows.map(r => ({ ...r, confirmed: Boolean(checked && validInvoice(r)) })); }
+export function checkInvoices(rows, checked) { return rows.map(r => ({ ...r, reviewEdited: true, confirmed: Boolean(checked && validInvoice(r)) })); }
 export function sameRevision(a, b) {
   if (a == null || b == null) return a == null && b == null;
   const first = Date.parse(a), second = Date.parse(b);

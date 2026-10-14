@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sameRevision, invoiceMonth, checkInvoices, parseDescription, splitInvoice, validateGroups, paidAt, matchClient, periodMonths } from './billing.js';
+import { prepareReview, reviewReason, sameRevision, invoiceMonth, checkInvoices, parseDescription, splitInvoice, validateGroups, paidAt, matchClient, periodMonths } from './billing.js';
 
 test('database timestamps compare by time, while real changes still conflict', () => {
   assert.equal(sameRevision('2026-10-14T03:12:45.123Z', '2026-10-14T03:12:45.123+00:00'), true);
@@ -13,10 +13,19 @@ test('database timestamps compare by time, while real changes still conflict', (
 test('issue date and service month stay separate, with explicit year confirmation', () => {
   assert.equal(parseDescription('2026년 8월분 기장료', '2026-10-10').target, '2026-08');
   assert.equal(parseDescription('9월 기장수수료', '2026-10-10').target, '2026-09');
-  assert.equal(parseDescription('9월 기장수수료', '2026-10-10').confirmed, false);
+  assert.equal(parseDescription('9월 기장수수료', '2026-10-10').confirmed, true);
+  assert.equal(parseDescription('12월 기장료', '2026-01-10').confirmed, false);
+  assert.equal(parseDescription('3월 기장료', '2026-10-10').confirmed, false);
   assert.equal(parseDescription('12월 기장료', '2026-01-10').target, '2025-12');
   const adjustment = parseDescription('2025년 귀속 종합소득세 조정료', '2026-05-10');
   assert.equal(adjustment.taxYear, 2025); assert.equal(adjustment.target, '2026-05');
+});
+test('safe legacy drafts are accepted, while edits and year boundaries remain for review', () => {
+  const row = { date: '2026-10-10', item: '8월 기장료', kind: 'book', target: '2026-08', net: 100, vat: 10, originalNet: 100, originalVat: 10, confirmed: false };
+  assert.equal(prepareReview(row).confirmed, true);
+  assert.equal(prepareReview({ ...row, reviewEdited: true }).confirmed, false);
+  assert.equal(prepareReview({ ...row, target: '2025-08' }).confirmed, false);
+  assert.equal(reviewReason({ ...row, range: [8, 9] }), '여러 달 합산 · 월별 분리 필요');
 });
 test('old attribution year does not move revenue out of its issuance period', () => {
   const row = { date: '2026-07-10', ...parseDescription('2024년 귀속 종합소득세 조정료', '2026-07-10') };

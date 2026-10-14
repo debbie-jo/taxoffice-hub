@@ -1,15 +1,42 @@
 import { useMemo, useState } from 'react';
 import { money, sum } from '../lib/billing';
-export default function AdjustmentManager({ clients, ledger, onSave, ready, busy, now }) {
-  const [entity, setEntity] = useState('전체'), [year, setYear] = useState(String(+now.slice(0, 4) - 1));
-  const [form, setForm] = useState({ clientId: '', taxYear: String(+now.slice(0, 4) - 1), expected: '', paymentMonth: '' });
+
+export default function AdjustmentManager({ clients, ledger, onSave, ready, busy, now, account }) {
+  const [entity, setEntity] = useState('전체');
+  const [year, setYear] = useState(String(+now.slice(0, 4) - 1));
   const plans = ledger.adjustmentPlans || [];
-  const rows = useMemo(() => {
-    const all = new Map(plans.map(p => [p.clientId + ':' + p.taxYear, p]));
-    clients.filter(c => c.agency_type !== '기장대리').forEach(c => { const key = c.id + ':' + year; if (!all.has(key)) all.set(key, { id: 'auto-plan:' + key, clientId: c.id, name: c.company_name, entityType: c.entity_type || '개인', taxYear: year, expected: 0, excluded: true }); });
-    ledger.invoices.filter(r => r.kind === 'adjust' && r.clientId && r.taxYear).forEach(r => { const key = r.clientId + ':' + r.taxYear; if (!all.has(key)) all.set(key, { id: 'invoice-plan:' + key, clientId: r.clientId, name: r.name, entityType: clients.find(c => c.id === r.clientId)?.entity_type || '개인', taxYear: r.taxYear, expected: 0 }); });
-    return [...all.values()].filter(p => (entity === '전체' || p.entityType === entity) && String(p.taxYear) === year).map(p => { const c = clients.find(x => x.id === p.clientId), bills = ledger.invoices.filter(r => r.clientId === p.clientId && r.kind === 'adjust' && String(r.taxYear) === String(p.taxYear)), issued = sum(bills.map(r => r.net)), months = [...new Set(bills.map(r => r.date?.slice(0, 7)).filter(Boolean))], settled = bills.length > 0 && bills.every(r => r.settledByInvoice || r.reconciled); return { ...p, name: c?.company_name || p.name || '미등록', issued, paidMonth: p.paymentMonth || months[0] || '', status: issued <= 0 ? (p.excluded ? '조정료 제외·미발행' : '미발행') : p.expected > 0 && issued < Number(p.expected) ? '일부발행' : settled ? '입금완료' : '발행·입금확인' }; });
-  }, [plans, clients, ledger.invoices, entity, year]);
-  function add(e) { e.preventDefault(); const c = clients.find(x => x.id === form.clientId); if (!c || !form.expected) return; const p = { id: 'adjust-plan:' + crypto.randomUUID(), clientId: c.id, name: c.company_name, entityType: c.entity_type || '개인', taxYear: form.taxYear, expected: Number(form.expected), paymentMonth: form.paymentMonth }; onSave({ ...ledger, adjustmentPlans: [...plans, p] }); setForm({ ...form, clientId: '', expected: '', paymentMonth: '' }); }
-  return <div className="adjustment-manager"><div className="billing-toolbar"><button onClick={() => setEntity('전체')}>전체</button><button onClick={() => setEntity('개인')}>개인</button><button onClick={() => setEntity('법인')}>법인</button><label>귀속연도<select value={year} onChange={e => setYear(e.target.value)}>{Array.from({ length: 6 }, (_, i) => <option key={i}>{+now.slice(0, 4) - i}</option>)}</select></label></div><form className="billing-toolbar" onSubmit={add}><select aria-label="조정료 대상 거래처" value={form.clientId} onChange={e => setForm({ ...form, clientId: e.target.value })} required><option value="">신고명단 거래처 선택</option>{clients.filter(c => c.agency_type !== '기장대리').map(c => <option key={c.id} value={c.id}>{c.company_name} · {c.entity_type || '개인'}</option>)}</select><input type="number" placeholder="귀속연도" value={form.taxYear} onChange={e => setForm({ ...form, taxYear: e.target.value })} required /><input type="number" min="1" placeholder="예상 조정료" value={form.expected} onChange={e => setForm({ ...form, expected: e.target.value })} required /><input type="month" aria-label="입금월" value={form.paymentMonth} onChange={e => setForm({ ...form, paymentMonth: e.target.value })} /><button disabled={!ready || busy}>조정료 대상 추가</button></form><div className="billing-scroll"><table><thead><tr><th>거래처</th><th>구분</th><th>귀속연도</th><th>예상 조정료</th><th>발행금액</th><th>입금월</th><th>상태</th></tr></thead><tbody>{rows.map(r => <tr key={r.id}><td>{r.name}</td><td>{r.entityType}</td><td>{r.taxYear}년</td><td>{money(r.expected)}원</td><td>{money(r.issued)}원</td><td>{r.paidMonth || '—'}</td><td>{r.status}</td></tr>)}</tbody></table>{!rows.length && <p className="billing-empty">신고명단 거래처를 선택해 귀속연도별 조정료 대상을 추가하세요.</p>}</div><p>신고명단에 없는 거래처는 거래처 목록에 먼저 등록한 뒤 직접 추가할 수 있습니다.</p></div>;
+  const byKey = new Map(plans.map(p => [`${p.clientId}:${p.taxYear}`, p]));
+  const invoices = ledger.invoices.filter(r => r.kind === 'adjust' && String(r.taxYear) === year);
+  const rows = useMemo(() => clients.map(client => {
+    const plan = byKey.get(`${client.id}:${year}`) || {};
+    const bills = invoices.filter(r => (r.clientId || account?.(r)?.id) === client.id);
+    const issued = sum(bills.map(r => r.net));
+    const expected = Number(plan.expected || 0);
+    const paid = bills.length > 0 && bills.every(r => r.settledByInvoice || r.reconciled);
+    const status = plan.excluded ? '조정료 제외' : issued === 0 ? (expected ? '미발행·미입금' : '금액 입력 필요') : expected && issued < expected ? '일부발행' : paid ? '입금완료' : '입금확인 필요';
+    return { client, plan, expected, issued, status };
+  }).filter(r => entity === '전체' || r.client.entity_type === entity), [clients, plans, invoices, year, entity]);
+
+  async function update(client, values) {
+    const key = `${client.id}:${year}`, old = byKey.get(key);
+    const next = { id: old?.id || `adjust-plan:${key}`, clientId: client.id, name: client.company_name, entityType: client.entity_type || '개인', taxYear: year, expected: old?.expected || 0, paymentMonth: old?.paymentMonth || '', excluded: Boolean(old?.excluded), ...values };
+    await onSave({ ...ledger, adjustmentPlans: [...plans.filter(p => `${p.clientId}:${p.taxYear}` !== key), next] });
+  }
+
+  return <div className="adjustment-manager">
+    <div className="billing-toolbar">
+      {['전체', '개인', '법인'].map(v => <button key={v} onClick={() => setEntity(v)}>{v}</button>)}
+      <label>귀속연도<select value={year} onChange={e => setYear(e.target.value)}>{Array.from({ length: 7 }, (_, i) => <option key={i}>{+now.slice(0, 4) - i}</option>)}</select></label>
+      <span>전체 {rows.length}곳 · 예상 {money(sum(rows.map(r => r.expected)))}원 · 발행 {money(sum(rows.map(r => r.issued)))}원</span>
+    </div>
+    <p>계산서를 발행하지 않은 조정료도 예상 금액을 입력하면 미발행·미입금으로 남습니다. 제외 대상은 체크하세요.</p>
+    <div className="billing-scroll"><table><thead><tr><th>거래처</th><th>구분</th><th>귀속연도</th><th>예상 조정료</th><th>실제 발행액</th><th>입금월</th><th>제외</th><th>상태</th></tr></thead><tbody>
+      {rows.map(({ client, plan, expected, issued, status }) => <tr key={client.id} className={client.status === '폐업' ? 'closed' : client.status === '이관' ? 'moved' : ''}>
+        <td><b>{client.company_name}</b><small>{client.status}</small></td><td>{client.entity_type || '개인'}</td><td>{year}년</td>
+        <td><input key={`${client.id}:${year}:${expected}`} type="number" min="0" defaultValue={expected || ''} placeholder="직접 입력" disabled={!ready || busy} onBlur={e => update(client, { expected: Number(e.target.value), excluded: false })} /></td>
+        <td>{money(issued)}원</td><td><input type="month" defaultValue={plan.paymentMonth || ''} disabled={!ready || busy || plan.excluded} onBlur={e => update(client, { paymentMonth: e.target.value })} /></td>
+        <td><input type="checkbox" checked={Boolean(plan.excluded)} disabled={!ready || busy} onChange={e => update(client, { excluded: e.target.checked, expected: e.target.checked ? 0 : expected })} /></td><td>{status}</td>
+      </tr>)}
+    </tbody></table></div>
+  </div>;
 }

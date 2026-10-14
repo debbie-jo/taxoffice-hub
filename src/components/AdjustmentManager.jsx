@@ -4,6 +4,7 @@ import { money, sum } from '../lib/billing';
 export default function AdjustmentManager({ clients, ledger, onSave, ready, busy, now, account }) {
   const [entity, setEntity] = useState('전체');
   const [year, setYear] = useState(String(+now.slice(0, 4) - 1));
+  const [drafts, setDrafts] = useState({});
   const plans = ledger.adjustmentPlans || [];
   const byKey = new Map(plans.map(p => [`${p.clientId}:${p.taxYear}`, p]));
   const invoices = ledger.invoices.filter(r => r.kind === 'adjust' && String(r.taxYear) === year);
@@ -20,8 +21,10 @@ export default function AdjustmentManager({ clients, ledger, onSave, ready, busy
   async function update(client, values) {
     const key = `${client.id}:${year}`, old = byKey.get(key);
     const next = { id: old?.id || `adjust-plan:${key}`, clientId: client.id, name: client.company_name, entityType: client.entity_type || '개인', taxYear: year, expected: old?.expected || 0, paymentMonth: old?.paymentMonth || '', excluded: Boolean(old?.excluded), ...values };
-    await onSave({ ...ledger, adjustmentPlans: [...plans.filter(p => `${p.clientId}:${p.taxYear}` !== key), next] });
+    return await onSave({ ...ledger, adjustmentPlans: [...plans.filter(p => `${p.clientId}:${p.taxYear}` !== key), next] });
   }
+  function change(client, plan, expected, key, value) { setDrafts(prev => ({ ...prev, [client.id]: { expected, paymentMonth: plan.paymentMonth || '', excluded: Boolean(plan.excluded), ...prev[client.id], [key]: value } })); }
+  async function saveRow(client, plan, expected) { const draft = drafts[client.id] || { expected, paymentMonth: plan.paymentMonth || '', excluded: Boolean(plan.excluded) }; if (await update(client, { ...draft, expected: Number(draft.expected || 0) })) setDrafts(prev => { const next = { ...prev }; delete next[client.id]; return next; }); }
 
   return <div className="adjustment-manager">
     <div className="billing-toolbar">
@@ -33,9 +36,9 @@ export default function AdjustmentManager({ clients, ledger, onSave, ready, busy
     <div className="billing-scroll"><table><thead><tr><th>거래처</th><th>구분</th><th>귀속연도</th><th>예상 조정료</th><th>실제 발행액</th><th>입금월</th><th>제외</th><th>상태</th></tr></thead><tbody>
       {rows.map(({ client, plan, expected, issued, status }) => <tr key={client.id} className={client.status === '폐업' ? 'closed' : client.status === '이관' ? 'moved' : ''}>
         <td><b>{client.company_name}</b><small>{client.status}</small></td><td>{client.entity_type || '개인'}</td><td>{year}년</td>
-        <td><input key={`${client.id}:${year}:${expected}`} type="number" min="0" defaultValue={expected || ''} placeholder="직접 입력" disabled={!ready || busy} onBlur={e => update(client, { expected: Number(e.target.value), excluded: false })} /></td>
-        <td>{money(issued)}원</td><td><input type="month" defaultValue={plan.paymentMonth || ''} disabled={!ready || busy || plan.excluded} onBlur={e => update(client, { paymentMonth: e.target.value })} /></td>
-        <td><input type="checkbox" checked={Boolean(plan.excluded)} disabled={!ready || busy} onChange={e => update(client, { excluded: e.target.checked, expected: e.target.checked ? 0 : expected })} /></td><td>{status}</td>
+        <td><input type="number" min="0" value={drafts[client.id]?.expected ?? expected ?? ''} placeholder="직접 입력" disabled={!ready || busy} onChange={e => change(client, plan, expected, 'expected', e.target.value)} /></td>
+        <td>{money(issued)}원</td><td><input type="month" value={drafts[client.id]?.paymentMonth ?? plan.paymentMonth ?? ''} disabled={!ready || busy || (drafts[client.id]?.excluded ?? plan.excluded)} onChange={e => change(client, plan, expected, 'paymentMonth', e.target.value)} /></td>
+        <td><input type="checkbox" checked={Boolean(drafts[client.id]?.excluded ?? plan.excluded)} disabled={!ready || busy} onChange={e => change(client, plan, expected, 'excluded', e.target.checked)} /></td><td>{status}<button disabled={!ready || busy || !drafts[client.id]} onClick={() => saveRow(client, plan, expected)}>저장</button></td>
       </tr>)}
     </tbody></table></div>
   </div>;

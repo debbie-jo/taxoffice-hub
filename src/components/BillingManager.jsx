@@ -51,6 +51,10 @@ export default function BillingManager({ clients, onRegister }) {
   const savedIds = new Set(ledger.invoices.map(r => r.id)), activeDraft = draft.filter(r => !savedIds.has(r.id));
   const readyDraft = validateGroups(activeDraft), readyIds = new Set(readyDraft.map(r => r.id));
   const reviewRows = activeDraft.filter(r => reviewFilter === 'all' || (reviewFilter === 'ready' ? readyIds.has(r.id) : !readyIds.has(r.id)));
+  const allocationChecks = [...activeDraft.reduce((map, row) => {
+    if (!row.root) return map;
+    const rows = map.get(row.root) || []; rows.push(row); map.set(row.root, rows); return map;
+  }, new Map())].filter(([, rows]) => rows.length > 1 && rows.some(r => r.allocation || r.range));
   useEffect(() => { setPage(p => Math.min(p, Math.max(0, Math.ceil(reviewRows.length / 40) - 1))); }, [reviewRows.length]);
   const eligibleDraft = activeDraft.filter(validInvoice), allChecked = eligibleDraft.length > 0 && eligibleDraft.every(r => r.confirmed), someChecked = draft.some(r => r.confirmed);
   function toggleAll(checked) { setDraft(prev => checkInvoices(prev, checked)); setNotice(checked ? '전 페이지에서 대상 월·금액이 유효한 내역을 전체 확인했습니다. 누락 월, 귀속연도 미지정, 분리 전 내역은 확인이 필요합니다.' : '전 페이지의 확인 표시를 모두 해제했습니다.'); }
@@ -126,7 +130,9 @@ export default function BillingManager({ clients, onRegister }) {
     downloadCsv(rows, `기장료_${year}-${year + 1}_${detailMode ? '전체상세' : '거래처요약'}.csv`);
   }
   const detailGroup = groups.find(g => g.key === detail);
+  const allocationNotice = view === 'import' && allocationChecks.length > 0 && <div className="billing-allocation-check"><strong>분리 금액 합계 확인</strong>{allocationChecks.map(([root, rows]) => { const net = sum(rows.map(r => r.net)), vat = sum(rows.map(r => r.vat)), originalNet = rows[0].originalNet, originalVat = rows[0].originalVat, ok = net === originalNet && vat === originalVat; return <p key={root}>{rows[0].name} · 원본 {money(originalNet)}원 + 부가세 {money(originalVat)}원 → 분리 합계 {money(net)}원 + 부가세 {money(vat)}원 <b className={ok ? 'allocation-ok' : 'allocation-bad'}>{ok ? '일치' : `차이 공급가액 ${money(net - originalNet)}원 / 부가세 ${money(vat - originalVat)}원`}</b></p>; })}</div>;
   return <section className="billing-manager">
+    {allocationNotice}
     <div className="billing-heading"><div><h2>기장료 관리</h2><p>대상 월 기준 납부 현황 · 발행일 기준 매출 정산 · 실제 입금일 기준 수금</p></div><label className="billing-button">매출 엑셀 가져오기<input type="file" accept=".xlsx,.xls,.csv" onChange={readFile} hidden /></label></div>
     {notice && <div className="billing-notice" role="status"><p>{notice}</p><button disabled={busy} onClick={refreshLedger}>공용 자료 다시 불러오기 (품명 확인 유지)</button></div>}
     <div className="billing-toolbar"><label>정산 기간 <select value={year} onChange={e => { setYear(+e.target.value); setMonth(periodMonths(+e.target.value)[11]); }}>{Array.from({ length: 7 }, (_, i) => initialYear - 4 + i).map(y => <option key={y} value={y}>{y}.07 ~ {y + 1}.06</option>)}</select></label><label>조회 월 <select value={chosen} disabled={annual} onChange={e => setMonth(e.target.value)}>{months.map(m => <option key={m}>{m}</option>)}</select></label><span>미수 기준: {cutoff.slice(0, 7)} 말 · 이전 기간 미수는 별도</span></div>

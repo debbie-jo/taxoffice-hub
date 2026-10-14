@@ -2,6 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { splitMixedInvoice, prepareReview, reviewReason, sameRevision, invoiceMonth, checkInvoices, parseDescription, splitInvoice, validateGroups, paidAt, matchClient, periodMonths } from './billing.js';
 
+test('paid-issued invoices settle without fabricated receipt dates or double counting', () => {
+  const row = { id: 'paid', date: '2026-10-10', net: 100000, vat: 10000, settledByInvoice: true };
+  assert.equal(paidAt(row, [], '2026-10-31'), 110000);
+  assert.equal(paidAt(row, [{ invoiceId: 'paid', date: '2026-10-01', amount: 110000 }], '2026-10-31'), 110000);
+  assert.equal(paidAt(row, [], '2026-09-30'), 0);
+  assert.equal(paidAt({ ...row, settledByInvoice: false }, [], '2026-10-31'), 0);
+});
+
 test('mixed bookkeeping and adjustment fees become distinct rows with separate years', () => {
   const item = '3~5월분 기장료, 2025년 귀속 법인세 조정료';
   const row = { id: 'mixed', root: 'mixed', item, date: '2026-06-10', net: 460000, vat: 46000, originalNet: 460000, originalVat: 46000, ...parseDescription(item, '2026-06-10') };

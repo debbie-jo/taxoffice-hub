@@ -48,7 +48,10 @@ export function splitMixedInvoice(r) {
   const issuedYear = +r.date.slice(0, 4), issuedMonth = +r.date.slice(5, 7);
   return [...months.map(m => ({ ...base, id: base.root + ':book:' + (m || 'unknown'), kind: 'book', taxYear: '', target: m ? `${issuedYear - (m > issuedMonth ? 1 : 0)}-${String(m).padStart(2, '0')}` : '' })), { ...base, id: base.root + ':adjust', kind: 'adjust', taxYear: parsed.taxYear, target: r.date.slice(0, 7) }];
 }
-export function paidAt(invoice, receipts, cutoff) { return sum(receipts.filter(r => r.invoiceId === invoice.id && r.date <= cutoff).map(r => r.amount)); }
+export function paidAt(invoice, receipts, cutoff) {
+  if (invoice.settledByInvoice && invoice.date <= cutoff) return invoice.net + invoice.vat;
+  return sum(receipts.filter(r => r.invoiceId === invoice.id && r.date <= cutoff).map(r => r.amount));
+}
 export function matchClient(row, clients) { const id = digits(row.business); return id ? clients.find(c => digits(c.business_number || c.business_reg_no || c.resident_number) === id) : undefined; }
 export function invoiceKey(r) { return JSON.stringify([r.date, r.serial, digits(r.business), r.name, r.item, r.net, r.vat]); }
 export function splitInvoice(r) {

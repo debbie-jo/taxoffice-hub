@@ -3,6 +3,7 @@ import { supabase } from "./lib/supabase";
 import { Fragment, useCallback } from "react";
 import "./index.css";
 import CmsApplication from "./components/CmsApplication.jsx";
+import BillingManager from "./components/BillingManager.jsx";
 import EdiApplication from "./components/EdiApplication.jsx";
 
 const bookkeepingTasks = [
@@ -3143,6 +3144,7 @@ function App() {
                 <button className={activeView === "clients" ? "active" : ""} type="button" onClick={() => setActiveView("clients")}>거래처 목록</button>
                 <button className={activeView === "joint" ? "active" : ""} type="button" onClick={() => setActiveView("joint")}>공동사업자 관리</button>
                 <button className={activeView === "bookkeeping" ? "active" : ""} type="button" onClick={() => setActiveView("bookkeeping")}>기장진도현황</button>
+                <button className={activeView === "billing" ? "active" : ""} type="button" onClick={() => setActiveView("billing")}>기장료 관리</button>
                 <button className={activeView === "cms" ? "active" : ""} type="button" onClick={() => setActiveView("cms")}>CMS 신청서 작성</button>
                 <button className={activeView === "edi" ? "active" : ""} type="button" onClick={() => setActiveView("edi")}>EDI 신청서 작성</button>
               </div>
@@ -3227,7 +3229,7 @@ function App() {
         <header className="page-header">
           <div>
             <p>{sharedStorageReady ? "Supabase 공용 저장 완료" : "Supabase 연결 완료"}</p>
-            <h1>{activeView === "cms" ? "CMS 신청서 작성" : activeView === "edi" ? "EDI 신청서 작성" : "거래처 관리"}</h1>
+            <h1>{activeView === "billing" ? "기장료 관리" : activeView === "cms" ? "CMS 신청서 작성" : activeView === "edi" ? "EDI 신청서 작성" : "거래처 관리"}</h1>
           </div>
           {!["cms", "edi"].includes(activeView) && (
             <div className="header-actions">
@@ -3416,6 +3418,11 @@ function App() {
           </div>
         )}
 
+        {activeView === "billing" && <BillingManager clients={clients} onRegister={(row) => {
+          setForm({ ...emptyForm, company_name: row.name, business_number: row.business });
+          setEditingId(null); setShowForm(true); setActiveView("clients");
+          setMessage("매출 내역에서 가져온 거래처입니다. 상태와 기장료 등 정보를 확인하고 저장해 주세요.");
+        }} />}
         {activeView === "cms" && <CmsApplication clients={clients} />}
         {activeView === "edi" && <EdiApplication clients={clients} />}
 

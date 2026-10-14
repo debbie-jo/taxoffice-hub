@@ -2,7 +2,7 @@ export function expectedFees(client, rows, months, schedule, coverageEnd) {
   const start = schedule?.start || String(client.contract_date || '').slice(0, 7);
   const end = schedule?.end ?? String(client.end_date || '').slice(0, 7);
   const fee = Number(String(schedule?.fee ?? client.bookkeeping_fee ?? '').replaceAll(',', ''));
-  const missing = !/^20\d{2}-\d{2}$/.test(start) || !Number.isFinite(fee) || fee <= 0 || (['폐업', '이관', '휴업'].includes(client.status) && !end);
+  const missing = !/^20\d{2}-(0[1-9]|1[0-2])$/.test(start) || !Number.isFinite(fee) || fee <= 0 || (end && (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(end) || end < start)) || (['폐업', '이관', '휴업'].includes(client.status) && !end);
   let continuous = '', gap = false;
   const slots = months.map(month => {
     if (missing) return { month, state: '기준 확인', unpaid: 0 };

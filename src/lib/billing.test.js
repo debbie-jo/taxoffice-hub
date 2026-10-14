@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareReview, reviewReason, sameRevision, invoiceMonth, checkInvoices, parseDescription, splitInvoice, validateGroups, paidAt, matchClient, periodMonths } from './billing.js';
+import { splitMixedInvoice, prepareReview, reviewReason, sameRevision, invoiceMonth, checkInvoices, parseDescription, splitInvoice, validateGroups, paidAt, matchClient, periodMonths } from './billing.js';
+
+test('mixed bookkeeping and adjustment fees become distinct rows with separate years', () => {
+  const item = '3~5월분 기장료, 2025년 귀속 법인세 조정료';
+  const row = { id: 'mixed', root: 'mixed', item, date: '2026-06-10', net: 460000, vat: 46000, originalNet: 460000, originalVat: 46000, ...parseDescription(item, '2026-06-10') };
+  assert.equal(row.mixed, true); assert.equal(validateGroups([{ ...row, confirmed: true }]).length, 0);
+  const legacy = { ...row, mixed: undefined, range: null, target: '2025-03', confirmed: true };
+  assert.equal(validateGroups([legacy]).length, 0);
+  const parts = splitMixedInvoice(row);
+  assert.deepEqual(parts.map(r => r.target), ['2026-03', '2026-04', '2026-05', '2026-06']);
+  assert.deepEqual(parts.map(r => r.kind), ['book', 'book', 'book', 'adjust']);
+  assert.equal(parts[3].taxYear, 2025); assert.equal(parts[0].taxYear, '');
+  assert.equal(validateGroups(parts.map(r => ({ ...r, confirmed: true }))).length, 0);
+  const allocated = parts.map((r, i) => ({ ...r, net: i === 3 ? 160000 : 100000, vat: i === 3 ? 16000 : 10000, confirmed: true }));
+  assert.equal(validateGroups(allocated).length, 4);
+  assert.equal(validateGroups(allocated.map((r, i) => i === 3 ? { ...r, net: 1 } : r)).length, 0);
+});
 
 test('database timestamps compare by time, while real changes still conflict', () => {
   assert.equal(sameRevision('2026-10-14T03:12:45.123Z', '2026-10-14T03:12:45.123+00:00'), true);

@@ -11,6 +11,7 @@ export function parseDescription(item, date) {
   const explicitYear = y ? (+y[1] < 100 ? 2000 + +y[1] : +y[1]) : null;
   const month = m ? +m[1] : null;
   const proposedYear = explicitYear ?? (+date.slice(0, 4) - (month > +date.slice(5, 7) ? 1 : 0));
+  if (/기장/.test(item) && /조정/.test(item)) return { kind: 'adjust', target: '', taxYear: explicitYear || '', confirmed: false, mixed: true, range: range ? [+range[1], +range[2]] : null, proposedYear: +date.slice(0, 4), bookMonths: range ? [+range[1], +range[2]] : month ? [month, month] : null };
   const recentMonth = !explicitYear && month && month <= +date.slice(5, 7) && +date.slice(5, 7) - month <= 2;
   return { kind, target: kind === 'book' ? month && !range ? `${proposedYear}-${String(month).padStart(2, '0')}` : '' : date.slice(0, 7), taxYear: /귀속/.test(item) || kind === 'adjust' ? explicitYear || '' : '', confirmed: kind === 'book' ? Boolean((explicitYear || recentMonth) && month && !range) : kind === 'adjust' ? Boolean(explicitYear && !range) : !range, range: range ? [+range[1], +range[2]] : null, proposedYear };
 }
@@ -21,6 +22,8 @@ export function prepareReview(row) {
   return row;
 }
 export function reviewReason(row) {
+  if (row.mixed || (!row.allocation && /기장/.test(row.item || '') && /조정/.test(row.item || ''))) return '기장료 + 조정료 금액 분리 필요';
+  if (row.allocation && row.net === 0) return '분리 금액 입력 필요';
   if (row.range) return '여러 달 합산 · 월별 분리 필요';
   if (!row.target) return '대상 월 누락';
   if (row.kind === 'adjust' && !row.taxYear) return '조정료 귀속연도 확인';
@@ -36,7 +39,15 @@ export function sameRevision(a, b) {
   const remainder = value => (String(value).match(/\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/)?.[1] || '').padEnd(3, '0').slice(3).replace(/0+$/, '');
   return Number.isFinite(first) && Number.isFinite(second) && first === second && remainder(a) === remainder(b);
 }
-export function validInvoice(r) { return /^20\d{2}-(0[1-9]|1[0-2])$/.test(r.target) && Number.isFinite(r.net) && Number.isFinite(r.vat) && !r.range && (r.kind !== 'adjust' || /^20\d{2}$/.test(String(r.taxYear))); }
+export function validInvoice(r) { return !r.mixed && (r.allocation || !(/기장/.test(r.item || '') && /조정/.test(r.item || ''))) && (!r.allocation || r.net !== 0) && /^20\d{2}-(0[1-9]|1[0-2])$/.test(r.target) && Number.isFinite(r.net) && Number.isFinite(r.vat) && !r.range && (r.kind !== 'adjust' || /^20\d{2}$/.test(String(r.taxYear))); }
+export function splitMixedInvoice(r) {
+  const parsed = parseDescription(r.item, r.date), bounds = parsed.bookMonths;
+  if (!parsed.mixed) throw Error('기장료와 조정료가 함께 적힌 품명에 사용해 주세요.');
+  const base = { ...r, root: r.root || r.id, net: 0, vat: 0, originalNet: r.originalNet ?? r.net, originalVat: r.originalVat ?? r.vat, mixed: false, range: null, allocation: true, reviewEdited: true, confirmed: false };
+  const months = bounds && bounds[1] >= bounds[0] ? Array.from({ length: bounds[1] - bounds[0] + 1 }, (_, i) => bounds[0] + i) : [null];
+  const issuedYear = +r.date.slice(0, 4), issuedMonth = +r.date.slice(5, 7);
+  return [...months.map(m => ({ ...base, id: base.root + ':book:' + (m || 'unknown'), kind: 'book', taxYear: '', target: m ? `${issuedYear - (m > issuedMonth ? 1 : 0)}-${String(m).padStart(2, '0')}` : '' })), { ...base, id: base.root + ':adjust', kind: 'adjust', taxYear: parsed.taxYear, target: r.date.slice(0, 7) }];
+}
 export function paidAt(invoice, receipts, cutoff) { return sum(receipts.filter(r => r.invoiceId === invoice.id && r.date <= cutoff).map(r => r.amount)); }
 export function matchClient(row, clients) { const id = digits(row.business); return id ? clients.find(c => digits(c.business_number || c.business_reg_no || c.resident_number) === id) : undefined; }
 export function invoiceKey(r) { return JSON.stringify([r.date, r.serial, digits(r.business), r.name, r.item, r.net, r.vat]); }

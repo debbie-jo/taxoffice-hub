@@ -2251,6 +2251,12 @@ function App() {
         });
       }
 
+      if (isVatFinal) {
+        return [...targets].sort((a, b) => (
+          Number(wasExcludedFromVatPreliminary(b)) - Number(wasExcludedFromVatPreliminary(a)) || sortClients(a, b)
+        ));
+      }
+
       if (filingType !== "withholding") return targets;
 
       return [...targets].sort((a, b) => {
@@ -3950,7 +3956,7 @@ function App() {
                               <td>
                                 {getVatPreliminaryDetailValue(client, "vat_preliminary_excluded") === "yes"
                                   ? <span className="status 이관">예정 제외 · 확정 6개월분</span>
-                                  : <span className="status 계속">일반 확정</span>}
+                                  : "—"}
                               </td>
                             )}
                             {filingType === "withholding" && <td>{item.withholding_type}</td>}

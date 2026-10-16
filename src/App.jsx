@@ -2231,6 +2231,7 @@ function App() {
         const item = normalizeClient(client);
         if (item.status === "계속" || item.status === "휴업") return true;
         if (!["폐업", "이관"].includes(item.status) || !item.end_date) return false;
+        if (statusFilter === "전체") return false;
         return item.end_date >= periodStart && item.end_date <= periodEnd;
       };
       const wasExcludedFromVatPreliminary = (client) => {
@@ -2277,7 +2278,7 @@ function App() {
         );
       });
     },
-    [activeClients, filteredClients, filingItems, filingPeriodKey, filingType, isVatFinal, isVatPreliminary, matchingVatPreliminaryPeriodKey, selectedFiling],
+    [activeClients, filteredClients, filingItems, filingPeriodKey, filingType, isVatFinal, isVatPreliminary, matchingVatPreliminaryPeriodKey, selectedFiling, statusFilter],
   );
 
   function getFilingKey(client) {

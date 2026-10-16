@@ -960,6 +960,72 @@ tbody tr:hover td:last-child {
   font-weight: 700;
 }
 
+.closure-vat-alert {
+  margin-bottom: 14px;
+  border: 1px solid #e7c5be;
+  border-radius: 10px;
+  background: #fff8f6;
+  overflow: hidden;
+}
+
+.closure-vat-alert-head,
+.closure-vat-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+}
+
+.closure-vat-alert-head {
+  justify-content: space-between;
+  border-bottom: 1px solid #f0d9d4;
+}
+
+.closure-vat-alert-head > div,
+.closure-vat-item > div {
+  display: grid;
+  gap: 3px;
+}
+
+.closure-vat-alert-head strong,
+.closure-vat-item strong {
+  color: #7c2d12;
+}
+
+.closure-vat-alert-head span,
+.closure-vat-item span {
+  color: #8a5a50;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.closure-vat-alert-head > b {
+  color: #9f2f23;
+  font-size: 13px;
+}
+
+.closure-vat-list {
+  display: grid;
+}
+
+.closure-vat-item + .closure-vat-item {
+  border-top: 1px solid #f2dfda;
+}
+
+.closure-vat-item > div {
+  flex: 1;
+}
+
+.closure-deadline {
+  min-width: 76px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.closure-deadline.overdue { color: #b42318; }
+.closure-deadline.soon { color: #a15c00; }
+.closure-deadline.scheduled { color: #527164; }
+
 .review-missing {
   display: grid;
   gap: 12px;

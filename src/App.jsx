@@ -999,6 +999,21 @@ function getCurrentYear() {
   return String(new Date().getFullYear());
 }
 
+function getClosureVatDueDate(endDate) {
+  const [year, month] = String(endDate || "").split("-").map(Number);
+  if (!year || !month) return "";
+  const due = new Date(year, month, 25);
+  return `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+}
+
+function getDateDifference(targetDate, baseDate = new Date()) {
+  if (!targetDate) return null;
+  const [year, month, day] = targetDate.split("-").map(Number);
+  const target = Date.UTC(year, month - 1, day);
+  const base = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+  return Math.round((target - base) / 86400000);
+}
+
 function getYearOptions() {
   const current = new Date().getFullYear();
   return Array.from({ length: 16 }, (_, index) => String(current + 2 - index));
@@ -2303,6 +2318,24 @@ function App() {
     return filingItems[matchingVatPreliminaryPeriodKey]?.vat?.[key]?._details?.[field] || "";
   }, [filingItems, matchingVatPreliminaryPeriodKey]);
 
+  const closureVatClients = useMemo(() => {
+    return clients
+      .filter((client) => {
+        const item = normalizeClient(client);
+        return item.status === "폐업" && item.tax_type !== "면세사업자" && Boolean(item.end_date);
+      })
+      .map((client) => {
+        const item = normalizeClient(client);
+        const closureKey = `폐업 부가세 ${item.end_date}`;
+        const done = filingItems[closureKey]?.vat?.[getFilingKey(client)]?._details?.closure_vat_done === "yes";
+        const dueDate = getClosureVatDueDate(item.end_date);
+        const daysRemaining = getDateDifference(dueDate);
+        return { client, item, closureKey, done, dueDate, daysRemaining };
+      })
+      .filter((item) => !item.done)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }, [clients, filingItems]);
+
   function getWithholdingPaymentTotal(client) {
     return withholdingAmountFields.reduce((sum, field) => {
       return sum + toNumber(getFilingDetailValue(client, field.key));
@@ -2332,6 +2365,34 @@ function App() {
   function toggleVatPreliminaryCorporateExclusion(client) {
     const excluded = getFilingDetailValue(client, "vat_preliminary_excluded") === "yes";
     changeFilingDetail(client, "vat_preliminary_excluded", excluded ? "" : "yes");
+  }
+
+  function toggleClosureVatDone(closure) {
+    const key = getFilingKey(closure.client);
+    setFilingItems((prev) => {
+      const periodData = prev[closure.closureKey] || {};
+      const vatData = periodData.vat || {};
+      const clientData = vatData[key] || {};
+      const done = clientData._details?.closure_vat_done === "yes";
+      const next = {
+        ...prev,
+        [closure.closureKey]: {
+          ...periodData,
+          vat: {
+            ...vatData,
+            [key]: {
+              ...clientData,
+              _details: {
+                ...(clientData._details || {}),
+                closure_vat_done: done ? "" : "yes",
+              },
+            },
+          },
+        },
+      };
+      persistSharedState("taxFilingProgress", next);
+      return next;
+    });
   }
 
   function toggleFilingProgress(client, task) {
@@ -3792,6 +3853,40 @@ function App() {
                 <strong>{isVatPreliminary ? "부가세 예정신고 대상 선택" : "부가세 금액 확인"}</strong>
                 <span>{isVatPreliminary ? "법인은 기본 대상이며 신고하지 않는 곳만 ‘제외’에 체크하세요. 개인은 폐업·조기환급 등 필요한 업체만 ‘대상’에 체크합니다. 실제 신고 대상은 표 위쪽에 모입니다." : "과세표준, 예정고지, 납부액을 입력하고 자료 수취부터 전자신고까지 진행합니다. 예정신고에서 제외한 법인은 ‘확정 6개월분’으로 표시됩니다."}</span>
               </div>
+            )}
+
+            {filingType === "vat" && closureVatClients.length > 0 && (
+              <section className="closure-vat-alert" aria-label="폐업 부가세 신고 알림">
+                <div className="closure-vat-alert-head">
+                  <div>
+                    <strong>폐업 부가세 신고 알림</strong>
+                    <span>폐업일이 속한 달의 다음 달 25일까지 신고·납부합니다.</span>
+                  </div>
+                  <b>{closureVatClients.length}곳 미완료</b>
+                </div>
+                <div className="closure-vat-list">
+                  {closureVatClients.map((closure) => {
+                    const label = closure.daysRemaining < 0
+                      ? `${Math.abs(closure.daysRemaining)}일 지남`
+                      : closure.daysRemaining === 0
+                        ? "오늘 마감"
+                        : closure.daysRemaining <= 7
+                          ? `${closure.daysRemaining}일 남음`
+                          : `${closure.daysRemaining}일 남음`;
+                    const urgency = closure.daysRemaining < 0 ? "overdue" : closure.daysRemaining <= 7 ? "soon" : "scheduled";
+                    return (
+                      <div className="closure-vat-item" key={`${closure.client.id}-${closure.item.end_date}`}>
+                        <div>
+                          <strong>{closure.item.company_name}</strong>
+                          <span>폐업일 {closure.item.end_date} · 신고기한 {closure.dueDate}</span>
+                        </div>
+                        <b className={`closure-deadline ${urgency}`}>{label}</b>
+                        <button type="button" className="check-toggle" onClick={() => toggleClosureVatDone(closure)}>신고 완료</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
             {filingType === "income" && (

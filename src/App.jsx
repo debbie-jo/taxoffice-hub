@@ -2219,11 +2219,37 @@ function App() {
     return filingMonth;
   }, [corporateMode, filingMonth, filingType, filingYear, vatPeriod]);
   const isVatPreliminary = filingType === "vat" && vatPeriod.includes("예정");
+  const isVatFinal = filingType === "vat" && vatPeriod.includes("확정");
+  const matchingVatPreliminaryPeriodKey = `${filingYear} ${vatPeriod.startsWith("1기") ? "1기 예정" : "2기 예정"}`;
 
   const filingClients = useMemo(
     () => {
-      const sourceClients = isVatPreliminary ? filteredClients : activeClients;
+      const wasExcludedFromVatPreliminary = (client) => {
+        const key = getFilingKey(client);
+        return filingItems[matchingVatPreliminaryPeriodKey]?.vat?.[key]?._details?.vat_preliminary_excluded === "yes";
+      };
+      const sourceClients = isVatPreliminary
+        ? filteredClients
+        : isVatFinal
+          ? filteredClients.filter((client) => normalizeClient(client).status === "계속" || wasExcludedFromVatPreliminary(client))
+          : activeClients;
       const targets = sourceClients.filter((client) => selectedFiling.applies(normalizeClient(client)));
+
+      if (isVatPreliminary) {
+        return [...targets].sort((a, b) => {
+          const left = normalizeClient(a);
+          const right = normalizeClient(b);
+          const leftDetails = filingItems[filingPeriodKey]?.vat?.[getFilingKey(a)]?._details || {};
+          const rightDetails = filingItems[filingPeriodKey]?.vat?.[getFilingKey(b)]?._details || {};
+          const leftIncluded = left.entity_type === "법인"
+            ? leftDetails.vat_preliminary_excluded !== "yes"
+            : leftDetails.vat_preliminary_selected === "yes";
+          const rightIncluded = right.entity_type === "법인"
+            ? rightDetails.vat_preliminary_excluded !== "yes"
+            : rightDetails.vat_preliminary_selected === "yes";
+          return Number(rightIncluded) - Number(leftIncluded) || sortClients(a, b);
+        });
+      }
 
       if (filingType !== "withholding") return targets;
 
@@ -2236,7 +2262,7 @@ function App() {
         );
       });
     },
-    [activeClients, filteredClients, filingType, isVatPreliminary, selectedFiling],
+    [activeClients, filteredClients, filingItems, filingPeriodKey, filingType, isVatFinal, isVatPreliminary, matchingVatPreliminaryPeriodKey, selectedFiling],
   );
 
   function getFilingKey(client) {
@@ -2256,6 +2282,11 @@ function App() {
     return clientData._details?.[field] || "";
   }, [filingItems, filingPeriodKey, filingType]);
 
+  const getVatPreliminaryDetailValue = useCallback((client, field) => {
+    const key = getFilingKey(client);
+    return filingItems[matchingVatPreliminaryPeriodKey]?.vat?.[key]?._details?.[field] || "";
+  }, [filingItems, matchingVatPreliminaryPeriodKey]);
+
   function getWithholdingPaymentTotal(client) {
     return withholdingAmountFields.reduce((sum, field) => {
       return sum + toNumber(getFilingDetailValue(client, field.key));
@@ -2269,7 +2300,10 @@ function App() {
 
   const isFilingExcluded = useCallback((client) => {
     if (filingType === "withholding") return getFilingDetailValue(client, "excluded") === "yes";
-    if (isVatPreliminary && normalizeClient(client).entity_type !== "법인") return getFilingDetailValue(client, "vat_preliminary_selected") !== "yes";
+    if (isVatPreliminary) {
+      if (normalizeClient(client).entity_type === "법인") return getFilingDetailValue(client, "vat_preliminary_excluded") === "yes";
+      return getFilingDetailValue(client, "vat_preliminary_selected") !== "yes";
+    }
     return false;
   }, [filingType, getFilingDetailValue, isVatPreliminary]);
 
@@ -2277,6 +2311,11 @@ function App() {
     const selected = getFilingDetailValue(client, "vat_preliminary_selected") === "yes";
     changeFilingDetail(client, "vat_preliminary_selected", selected ? "" : "yes");
     if (!selected && !getFilingDetailValue(client, "vat_preliminary_reason")) changeFilingDetail(client, "vat_preliminary_reason", "기타");
+  }
+
+  function toggleVatPreliminaryCorporateExclusion(client) {
+    const excluded = getFilingDetailValue(client, "vat_preliminary_excluded") === "yes";
+    changeFilingDetail(client, "vat_preliminary_excluded", excluded ? "" : "yes");
   }
 
   function toggleFilingProgress(client, task) {
@@ -3711,7 +3750,7 @@ function App() {
             <div className="filing-guide">
               <div>
                 <span>대상 기준</span>
-                <strong>{isVatPreliminary ? "법인 자동 포함 · 개인 직접 선택" : selectedFiling.description}</strong>
+                <strong>{isVatPreliminary ? "법인 기본 포함 · 개인 직접 선택" : selectedFiling.description}</strong>
               </div>
               <div>
                 <span>대상 거래처</span>
@@ -3735,7 +3774,7 @@ function App() {
             {filingType === "vat" && (
               <div className="withholding-note">
                 <strong>{isVatPreliminary ? "부가세 예정신고 대상 선택" : "부가세 금액 확인"}</strong>
-                <span>{isVatPreliminary ? "법인은 자동으로 신고 대상에 포함합니다. 개인은 폐업·조기환급 등 신고가 필요한 업체만 ‘대상’에 체크하고 사유를 선택하세요." : "과세표준, 예정고지, 납부액을 입력하고 자료 수취부터 전자신고까지 진행합니다."}</span>
+                <span>{isVatPreliminary ? "법인은 기본 대상이며 신고하지 않는 곳만 ‘제외’에 체크하세요. 개인은 폐업·조기환급 등 필요한 업체만 ‘대상’에 체크합니다. 실제 신고 대상은 표 위쪽에 모입니다." : "과세표준, 예정고지, 납부액을 입력하고 자료 수취부터 전자신고까지 진행합니다. 예정신고에서 제외한 법인은 ‘확정 6개월분’으로 표시됩니다."}</span>
               </div>
             )}
 
@@ -3830,6 +3869,7 @@ function App() {
                       {filingType === "vat" && <th>과세유형</th>}
                       {isVatPreliminary && <th>예정신고 대상</th>}
                       {isVatPreliminary && <th>대상 사유</th>}
+                      {isVatFinal && <th>예정신고 내역</th>}
                       {filingType === "withholding" && <th>원천세</th>}
                       {filingType === "withholding" && <th>해당월 제외</th>}
                       {filingType === "withholding" && <th>지급액 합계</th>}
@@ -3898,12 +3938,19 @@ function App() {
                             {filingType === "vat" && <td>{item.tax_type}</td>}
                             {isVatPreliminary && (
                               <td className="check-cell">
-                                {item.entity_type === "법인" ? <span className="status 계속">자동 대상</span> : <label><input className="table-checkbox" type="checkbox" checked={getFilingDetailValue(client, "vat_preliminary_selected") === "yes"} onChange={() => toggleVatPreliminaryTarget(client)} aria-label={`${item.company_name} 부가세 예정신고 대상`} /> 대상</label>}
+                                {item.entity_type === "법인" ? <label><input className="table-checkbox" type="checkbox" checked={getFilingDetailValue(client, "vat_preliminary_excluded") === "yes"} onChange={() => toggleVatPreliminaryCorporateExclusion(client)} aria-label={`${item.company_name} 부가세 예정신고 제외`} /> 제외</label> : <label><input className="table-checkbox" type="checkbox" checked={getFilingDetailValue(client, "vat_preliminary_selected") === "yes"} onChange={() => toggleVatPreliminaryTarget(client)} aria-label={`${item.company_name} 부가세 예정신고 대상`} /> 대상</label>}
                               </td>
                             )}
                             {isVatPreliminary && (
                               <td>
-                                {item.entity_type === "법인" ? "법인" : <select className="table-input" value={getFilingDetailValue(client, "vat_preliminary_reason") || "기타"} disabled={excluded} onChange={(event) => changeFilingDetail(client, "vat_preliminary_reason", event.target.value)} aria-label={`${item.company_name} 부가세 예정신고 사유`}><option>폐업</option><option>조기환급</option><option>기타</option></select>}
+                                {item.entity_type === "법인" ? (excluded ? <span className="status 폐업">예정 제외</span> : <span className="status 계속">법인 대상</span>) : <select className="table-input" value={getFilingDetailValue(client, "vat_preliminary_reason") || "기타"} disabled={excluded} onChange={(event) => changeFilingDetail(client, "vat_preliminary_reason", event.target.value)} aria-label={`${item.company_name} 부가세 예정신고 사유`}><option>폐업</option><option>조기환급</option><option>기타</option></select>}
+                              </td>
+                            )}
+                            {isVatFinal && (
+                              <td>
+                                {getVatPreliminaryDetailValue(client, "vat_preliminary_excluded") === "yes"
+                                  ? <span className="status 이관">예정 제외 · 확정 6개월분</span>
+                                  : <span className="status 계속">일반 확정</span>}
                               </td>
                             )}
                             {filingType === "withholding" && <td>{item.withholding_type}</td>}

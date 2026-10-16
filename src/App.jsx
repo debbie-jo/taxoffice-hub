@@ -2224,14 +2224,23 @@ function App() {
 
   const filingClients = useMemo(
     () => {
+      const firstHalf = vatPeriod.startsWith("1기");
+      const periodStart = `${filingYear}-${firstHalf ? "01" : "07"}-01`;
+      const periodEnd = `${filingYear}-${firstHalf ? (isVatPreliminary ? "03-31" : "06-30") : (isVatPreliminary ? "09-30" : "12-31")}`;
+      const isRelevantVatClient = (client) => {
+        const item = normalizeClient(client);
+        if (item.status === "계속" || item.status === "휴업") return true;
+        if (!["폐업", "이관"].includes(item.status) || !item.end_date) return false;
+        return item.end_date >= periodStart && item.end_date <= periodEnd;
+      };
       const wasExcludedFromVatPreliminary = (client) => {
         const key = getFilingKey(client);
         return filingItems[matchingVatPreliminaryPeriodKey]?.vat?.[key]?._details?.vat_preliminary_excluded === "yes";
       };
       const sourceClients = isVatPreliminary
-        ? filteredClients
+        ? filteredClients.filter(isRelevantVatClient)
         : isVatFinal
-          ? filteredClients.filter((client) => normalizeClient(client).status === "계속" || wasExcludedFromVatPreliminary(client))
+          ? filteredClients.filter(isRelevantVatClient)
           : activeClients;
       const targets = sourceClients.filter((client) => selectedFiling.applies(normalizeClient(client)));
 

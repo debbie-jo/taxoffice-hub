@@ -2327,10 +2327,11 @@ function App() {
       .map((client) => {
         const item = normalizeClient(client);
         const closureKey = `폐업 부가세 ${item.end_date}`;
-        const done = filingItems[closureKey]?.vat?.[getFilingKey(client)]?._details?.closure_vat_done === "yes";
+        const details = filingItems[closureKey]?.vat?.[getFilingKey(client)]?._details || {};
+        const done = details.closure_vat_done === "yes";
         const dueDate = getClosureVatDueDate(item.end_date);
         const daysRemaining = getDateDifference(dueDate);
-        return { client, item, closureKey, done, dueDate, daysRemaining };
+        return { client, item, closureKey, details, done, dueDate, daysRemaining };
       })
       .filter((item) => !item.done)
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -2393,6 +2394,39 @@ function App() {
       persistSharedState("taxFilingProgress", next);
       return next;
     });
+  }
+
+  function changeClosureVatDetail(closure, field, value) {
+    const key = getFilingKey(closure.client);
+    setFilingItems((prev) => {
+      const periodData = prev[closure.closureKey] || {};
+      const vatData = periodData.vat || {};
+      const clientData = vatData[key] || {};
+      const next = {
+        ...prev,
+        [closure.closureKey]: {
+          ...periodData,
+          vat: {
+            ...vatData,
+            [key]: {
+              ...clientData,
+              _details: {
+                ...(clientData._details || {}),
+                [field]: formatSignedNumberWithCommas(value),
+              },
+            },
+          },
+        },
+      };
+      persistSharedState("taxFilingProgress", next);
+      return next;
+    });
+  }
+
+  function blurClosureVatAmount(closure, field, event) {
+    const value = formatSignedNumberWithCommas(event.target.value);
+    event.target.value = value;
+    changeClosureVatDetail(closure, field, value);
   }
 
   function toggleFilingProgress(client, task) {
@@ -3881,6 +3915,32 @@ function App() {
                           <span>폐업일 {closure.item.end_date} · 신고기한 {closure.dueDate}</span>
                         </div>
                         <b className={`closure-deadline ${urgency}`}>{label}</b>
+                        <label className="closure-amount">
+                          <span>과세표준</span>
+                          <input
+                            key={`${closure.closureKey}-${getFilingKey(closure.client)}-tax_base`}
+                            className="table-input amount-input"
+                            defaultValue={closure.details.closure_vat_tax_base || ""}
+                            onKeyDown={handleAmountKeyDown}
+                            onBlur={(event) => blurClosureVatAmount(closure, "closure_vat_tax_base", event)}
+                            placeholder="0"
+                            inputMode="decimal"
+                            aria-label={`${closure.item.company_name} 폐업 부가세 과세표준`}
+                          />
+                        </label>
+                        <label className="closure-amount">
+                          <span>납부세액</span>
+                          <input
+                            key={`${closure.closureKey}-${getFilingKey(closure.client)}-payment`}
+                            className="table-input amount-input"
+                            defaultValue={closure.details.closure_vat_payment || ""}
+                            onKeyDown={handleAmountKeyDown}
+                            onBlur={(event) => blurClosureVatAmount(closure, "closure_vat_payment", event)}
+                            placeholder="0"
+                            inputMode="decimal"
+                            aria-label={`${closure.item.company_name} 폐업 부가세 납부세액`}
+                          />
+                        </label>
                         <button type="button" className="check-toggle" onClick={() => toggleClosureVatDone(closure)}>신고 완료</button>
                       </div>
                     );

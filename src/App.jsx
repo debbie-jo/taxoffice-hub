@@ -5,6 +5,7 @@ import "./index.css";
 import CmsApplication from "./components/CmsApplication.jsx";
 import BillingManager from "./components/BillingManager.jsx";
 import EdiApplication from "./components/EdiApplication.jsx";
+import InterimClosing from "./components/InterimClosing.jsx";
 
 const bookkeepingTasks = [
   "세금계산서",
@@ -120,6 +121,7 @@ const paymentStatementTypes = {
 };
 
 const sharedStateConfigs = [
+  { key: "interimClosingRecords", fallback: {} },
   { key: "bookkeepingProgress", fallback: {} },
   { key: "taxFilingProgress", fallback: {} },
   { key: "correctionFilings", fallback: [] },
@@ -1457,6 +1459,7 @@ function App() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("전체");
   const [activeView, setActiveView] = useState("clients");
+  const [interimClosingRecords, setInterimClosingRecords] = useState(() => readLocalState("interimClosingRecords", {}));
   const [openMenus, setOpenMenus] = useState({ clients: true, filings: true, reports: true, statements: true });
   const [progressMonth, setProgressMonth] = useState(getCurrentMonth());
   const [progressItems, setProgressItems] = useState(() => readLocalState("bookkeepingProgress", {}));
@@ -1526,6 +1529,7 @@ function App() {
       if (error) throw error;
 
       const remoteStates = (data || []).reduce((items, item) => ({ ...items, [item.key]: item.value }), {});
+      setInterimClosingRecords(remoteStates.interimClosingRecords ?? localStates.interimClosingRecords);
       const nextProgressItems = remoteStates.bookkeepingProgress ?? localStates.bookkeepingProgress;
       const nextFilingItems = remoteStates.taxFilingProgress ?? localStates.taxFilingProgress;
       const nextCorrectionItems = remoteStates.correctionFilings ?? localStates.correctionFilings;
@@ -3349,6 +3353,7 @@ function App() {
             {openMenus.reports && (
               <div className="nav-children">
                 <button className={activeView === "income-report" ? "active" : ""} type="button" onClick={() => setActiveView("income-report")}>종소세 결산 보고서</button>
+                <button className={activeView === "interim-closing" ? "active" : ""} type="button" onClick={() => setActiveView("interim-closing")}>가결산 관리</button>
               </div>
             )}
           </div>
@@ -3584,6 +3589,10 @@ function App() {
         }} />}
         {activeView === "cms" && <CmsApplication clients={clients} />}
         {activeView === "edi" && <EdiApplication clients={clients} />}
+        {activeView === "interim-closing" && <InterimClosing clients={clients} records={interimClosingRecords} loading={loading} onChange={(next) => {
+          persistSharedState("interimClosingRecords", next);
+          setInterimClosingRecords(next);
+        }} />}
 
         {activeView === "clients" && (
         <section className="panel list-panel">

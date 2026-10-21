@@ -1,0 +1,12 @@
+.interim-summary { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 20px; background: #f0f7f5; border-radius: 10px; margin: 0 0 16px; }
+.interim-summary strong { color: #146b63; font-size: 20px; margin-left: 8px; }
+.interim-help { color: #64748b; font-size: 13px; margin: 12px 0 20px; }
+.interim-closing .table-wrap { overflow-x: auto; }
+.interim-table { width: 100%; min-width: 1650px; }
+.interim-table td { vertical-align: top; }
+.interim-table small { display: block; margin-top: 6px; color: #64748b; font-size: 12px; }
+.interim-table input[type="number"] { min-width: 145px; width: 100%; text-align: right; }
+.interim-table textarea { min-width: 190px; width: 100%; resize: vertical; }
+.interim-check { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.interim-check input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; accent-color: #146b63; }
+.interim-needs-review { background: #fff9eb; }
